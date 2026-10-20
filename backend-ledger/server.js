@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000
 function validateProductionConfig() {
     if (process.env.NODE_ENV !== "production") return
 
-    const required = ["MONGO_URI", "JWT_SECRET", "FRONTEND_URL", "SMTP_HOST", "SMTP_USER", "SMTP_PASS"]
+    const required = ["MONGO_URI", "JWT_SECRET", "FRONTEND_URL", "BREVO_API_KEY", "EMAIL_FROM_ADDRESS"]
     const missing = required.filter((name) => !process.env[name])
     if (missing.length) throw new Error(`Missing production environment variables: ${missing.join(", ")}`)
 }

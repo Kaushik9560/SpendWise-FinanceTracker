@@ -24,7 +24,7 @@ This repository contains both parts of the project:
 | Backend | Node.js, Express, MongoDB, Mongoose |
 | Frontend | React 19, JavaScript, Vite |
 | Auth | JWT, HTTP cookies |
-| Email | SMTP via Nodemailer |
+| Email | Brevo transactional email API |
 
 ## Repository Structure
 
@@ -100,12 +100,9 @@ MONGO_URI=mongodb://127.0.0.1:27017/backend-ledger
 JWT_SECRET=replace-with-a-long-random-secret
 FRONTEND_URL=http://localhost:5173
 COOKIE_SAME_SITE=lax
-EMAIL_FROM=SpendWise <no-reply@your-domain.com>
-SMTP_HOST=smtp.your-provider.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-smtp-user
-SMTP_PASS=your-smtp-password
+BREVO_API_KEY=your-brevo-api-key
+EMAIL_FROM_ADDRESS=your-verified-sender@example.com
+EMAIL_FROM_NAME=SpendWise
 ```
 
 Frontend optional `.env`:

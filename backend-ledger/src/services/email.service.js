@@ -1,27 +1,5 @@
-const nodemailer = require("nodemailer")
-
-let transporter
-
 function getFrontendUrl() {
     return String(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "")
-}
-
-function getTransporter() {
-    if (transporter) return transporter
-
-    const host = process.env.SMTP_HOST
-    const port = Number(process.env.SMTP_PORT || 587)
-    const user = process.env.SMTP_USER
-    const pass = process.env.SMTP_PASS
-    if (!host || !user || !pass) return null
-
-    transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: String(process.env.SMTP_SECURE || "false") === "true",
-        auth: { user, pass }
-    })
-    return transporter
 }
 
 function buildEmail({ title, greeting, body, action, actionUrl, expiry }) {
@@ -33,14 +11,39 @@ function buildEmail({ title, greeting, body, action, actionUrl, expiry }) {
 }
 
 async function deliver({ to, subject, html, previewUrl }) {
-    const mailer = getTransporter()
-    if (!mailer) {
+    const apiKey = process.env.BREVO_API_KEY
+    const senderEmail = process.env.EMAIL_FROM_ADDRESS
+
+    if (!apiKey || !senderEmail) {
         if (process.env.NODE_ENV === "production") throw new Error("Email service is not configured")
         console.info(`[email preview] ${subject}: ${previewUrl}`)
         return { previewUrl }
     }
 
-    await mailer.sendMail({ from: process.env.EMAIL_FROM || process.env.SMTP_USER, to, subject, html })
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+            "api-key": apiKey,
+            "content-type": "application/json",
+            accept: "application/json"
+        },
+        body: JSON.stringify({
+            sender: {
+                name: process.env.EMAIL_FROM_NAME || "SpendWise",
+                email: senderEmail
+            },
+            to: [{ email: to }],
+            subject,
+            htmlContent: html
+        }),
+        signal: AbortSignal.timeout(10000)
+    })
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.message || "Brevo could not send the email")
+    }
+
     return {}
 }
 
