@@ -936,7 +936,10 @@ input[type=date]::-webkit-calendar-picker-indicator {
     align-items: center;
     justify-content: center;
     padding: clamp(2.5rem, 5vw, 5.5rem);
-    background: #081827;
+    background:
+        radial-gradient(circle at 75% 66%, rgba(47, 100, 231, 0.13), transparent 32%),
+        radial-gradient(circle at 18% 82%, rgba(29, 199, 154, 0.06), transparent 25%),
+        #081827;
     position: relative;
     overflow: hidden;
 }
@@ -967,7 +970,7 @@ input[type=date]::-webkit-calendar-picker-indicator {
 .auth-brand {
     position: relative;
     z-index: 1;
-    width: min(100%, 700px);
+    width: min(100%, 760px);
 }
 
 .brand-header,
@@ -1044,17 +1047,20 @@ input[type=date]::-webkit-calendar-picker-indicator {
     position: relative;
     display: grid;
     place-items: center;
-    height: clamp(330px, 43vh, 470px);
-    margin-top: -0.5rem;
+    height: clamp(380px, 49vh, 520px);
+    margin: -0.5rem -1.5rem 0;
+    isolation: isolate;
 }
 
 .brand-visual img {
     position: relative;
     z-index: 1;
-    width: min(78%, 410px);
+    width: min(88%, 500px);
     max-height: 100%;
     object-fit: contain;
     filter: drop-shadow(0 30px 45px rgba(0, 0, 0, 0.35));
+    transform-origin: 50% 85%;
+    animation: heroFloat 5.5s ease-in-out infinite;
 }
 
 .brand-glow {
@@ -1063,6 +1069,104 @@ input[type=date]::-webkit-calendar-picker-indicator {
     height: 250px;
     background: radial-gradient(circle, rgba(64, 111, 255, 0.23), transparent 68%);
     filter: blur(12px);
+    animation: heroGlow 4s ease-in-out infinite;
+}
+
+.brand-orbit {
+    position: absolute;
+    z-index: 0;
+    width: 310px;
+    height: 310px;
+    border: 1px solid rgba(110, 149, 255, 0.16);
+    border-radius: 50%;
+    transform: rotate(-18deg);
+    animation: orbitSpin 12s linear infinite;
+}
+
+.brand-orbit span {
+    position: absolute;
+    top: 26px;
+    right: 42px;
+    width: 8px;
+    height: 8px;
+    background: #72e6c1;
+    border-radius: 50%;
+    box-shadow: 0 0 18px 5px rgba(67, 213, 169, 0.38);
+}
+
+.brand-particle {
+    position: absolute;
+    z-index: 2;
+    width: 7px;
+    height: 7px;
+    background: #78a0ff;
+    border-radius: 50%;
+    box-shadow: 0 0 14px 4px rgba(93, 141, 255, 0.28);
+    animation: particleDrift 4.5s ease-in-out infinite;
+}
+
+.particle-one { left: 20%; top: 38%; }
+.particle-two { right: 18%; top: 50%; width: 5px; height: 5px; animation-delay: -1.4s; }
+.particle-three { left: 27%; bottom: 16%; width: 4px; height: 4px; animation-delay: -2.8s; }
+
+.visual-card {
+    position: absolute;
+    z-index: 3;
+    min-width: 142px;
+    padding: 0.75rem 0.85rem;
+    color: #eaf1fb;
+    background: linear-gradient(135deg, rgba(25, 50, 80, 0.88), rgba(12, 29, 48, 0.78));
+    border: 1px solid rgba(130, 166, 219, 0.22);
+    border-radius: 14px;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+}
+
+.visual-card span { color: #8fa4bd; font-size: 0.64rem; }
+.visual-card strong { display: block; margin-top: 0.22rem; font-size: 0.95rem; }
+
+.visual-saving {
+    left: 5%;
+    top: 42%;
+    animation: cardFloat 5s ease-in-out infinite -1s;
+}
+
+.visual-saving strong { color: #65e2bb; }
+
+.visual-budget {
+    right: 3%;
+    bottom: 19%;
+    animation: cardFloat 5.8s ease-in-out infinite -3s;
+}
+
+.visual-budget > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.visual-budget strong { margin: 0; font-size: 0.72rem; }
+.visual-budget i { display: block; height: 5px; margin-top: 0.65rem; overflow: hidden; background: #263b53; border-radius: 999px; }
+.visual-budget b { display: block; width: 76%; height: 100%; background: linear-gradient(90deg, #4e7fff, #6ee7c4); border-radius: inherit; }
+
+@keyframes heroFloat {
+    0%, 100% { transform: translateY(0) rotate(-0.4deg); }
+    50% { transform: translateY(-13px) rotate(0.8deg); }
+}
+
+@keyframes heroGlow {
+    0%, 100% { opacity: 0.55; transform: scale(0.92); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+@keyframes orbitSpin {
+    from { transform: rotate(-18deg); }
+    to { transform: rotate(342deg); }
+}
+
+@keyframes particleDrift {
+    0%, 100% { opacity: 0.35; transform: translate(0, 8px) scale(0.8); }
+    50% { opacity: 1; transform: translate(8px, -12px) scale(1.2); }
+}
+
+@keyframes cardFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 .brand-signoff {

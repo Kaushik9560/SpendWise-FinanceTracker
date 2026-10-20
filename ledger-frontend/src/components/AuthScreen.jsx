@@ -38,6 +38,18 @@ export default function AuthScreen({
                     </div>
                     <div className="brand-visual" aria-hidden="true">
                         <div className="brand-glow" />
+                        <div className="brand-orbit"><span /></div>
+                        <span className="brand-particle particle-one" />
+                        <span className="brand-particle particle-two" />
+                        <span className="brand-particle particle-three" />
+                        <div className="visual-card visual-saving">
+                            <span>Monthly savings</span>
+                            <strong>+18.4%</strong>
+                        </div>
+                        <div className="visual-card visual-budget">
+                            <div><span>Smart budget</span><strong>76%</strong></div>
+                            <i><b /></i>
+                        </div>
                         <img src={heroImage} alt="" />
                     </div>
                     <p className="brand-signoff">Track. Plan. Grow.</p>
