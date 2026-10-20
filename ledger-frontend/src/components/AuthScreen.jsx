@@ -1,4 +1,5 @@
 import { ledgerApi } from "../api"
+import heroImage from "../assets/spendwise-hero.png"
 import BrandMark from "./BrandMark"
 
 export default function AuthScreen({
@@ -27,20 +28,19 @@ export default function AuthScreen({
 
     return (
         <div className="auth-page">
-            <section className="auth-left" aria-label="SpendWise product overview">
+            <section className="auth-left" aria-label="SpendWise">
                 <div className="auth-brand">
                     <div className="brand-header"><span className="brand-logo"><BrandMark /></span><span className="brand-name">SpendWise</span></div>
                     <div className="brand-copy">
-                        <p className="brand-eyebrow">Personal finance, without the noise</p>
-                        <h1>A clearer view of your money.</h1>
-                        <p className="brand-tagline">Track income, spending, budgets, and account balances in one secure workspace.</p>
+                        <p className="brand-eyebrow">Spend smarter. Live better.</p>
+                        <h1>Make every rupee count.</h1>
+                        <p className="brand-tagline">A simpler way to see where your money goes—and shape where it takes you.</p>
                     </div>
-                    <div className="product-preview" aria-label="Product security overview">
-                        <div className="preview-header"><div><p className="preview-kicker">Secure by design</p><p className="preview-period">Your data, protected</p></div></div>
-                        <div className="preview-balance"><span>Account protection</span><strong style={{ fontSize: "1.8rem" }}>Verified access</strong><small>Email verification and secure sessions</small></div>
-                        <div className="preview-metrics"><div><span>Money history</span><strong className="metric-positive">Ledger based</strong></div><div><span>Recovery</span><strong>Email reset</strong></div></div>
+                    <div className="brand-visual" aria-hidden="true">
+                        <div className="brand-glow" />
+                        <img src={heroImage} alt="" />
                     </div>
-                    <div className="brand-proof"><span><b>✓</b> Verified email</span><span><b>✓</b> HttpOnly session</span><span><b>✓</b> Secure recovery</span></div>
+                    <p className="brand-signoff">Track. Plan. Grow.</p>
                 </div>
             </section>
 

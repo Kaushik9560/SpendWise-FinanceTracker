@@ -14,6 +14,7 @@ import AppSidebar from "./components/AppSidebar"
 import AppTopbar from "./components/AppTopbar"
 import AuthScreen from "./components/AuthScreen"
 import CreateAccountModal from "./components/CreateAccountModal"
+import DeleteAccountModal from "./components/DeleteAccountModal"
 import DeleteUserModal from "./components/DeleteUserModal"
 import ToastContainer from "./components/ToastContainer"
 import AccountsSection from "./sections/AccountsSection"
@@ -53,6 +54,7 @@ export default function App() {
     const [busyAction, setBusyAction] = useState(null)
     const [showModal, setShowModal] = useState(false)
     const [showAccountModal, setShowAccountModal] = useState(false)
+    const [accountToDelete, setAccountToDelete] = useState(null)
     const [showDeleteUserModal, setShowDeleteUserModal] = useState(false)
     const [toasts, setToasts] = useState([])
     const [expenseFilter, setExpenseFilter] = useState("all")
@@ -175,10 +177,6 @@ export default function App() {
     }
 
     async function handleDeleteAccount(account) {
-        if (!confirm(`Delete ${account.name}? Only zero-balance accounts can be deleted.`)) {
-            return
-        }
-
         setBusyAction("deleteAccount")
         try {
             await ledgerApi.deleteAccount(account._id)
@@ -193,6 +191,7 @@ export default function App() {
                 toAccount: currentTransfer.toAccount === account._id ? "" : currentTransfer.toAccount,
                 amount: currentTransfer.amount
             }))
+            setAccountToDelete(null)
             showToast("success", "Account deleted")
         } catch (error) {
             showToast("error", error instanceof Error ? error.message : "Failed to delete account")
@@ -643,6 +642,14 @@ export default function App() {
                     onSubmit={handleCreateAccount}
                 />
             )}
+            {accountToDelete && (
+                <DeleteAccountModal
+                    account={accountToDelete}
+                    busy={busyAction === "deleteAccount"}
+                    onClose={() => setAccountToDelete(null)}
+                    onConfirm={() => void handleDeleteAccount(accountToDelete)}
+                />
+            )}
             {showDeleteUserModal && (
                 <DeleteUserModal
                     busy={busyAction === "deleteUserAccount"}
@@ -707,7 +714,7 @@ export default function App() {
                             busyAction={busyAction}
                             onRefreshAccounts={handleRefreshAccounts}
                             onCreateAccount={() => setShowAccountModal(true)}
-                            onDeleteAccount={handleDeleteAccount}
+                            onDeleteAccount={setAccountToDelete}
                             onDeleteUserAccount={() => setShowDeleteUserModal(true)}
                         />
                     )}
