@@ -13,6 +13,8 @@ This repository contains both parts of the project:
 - Idempotent transfer endpoint to reduce duplicate transaction risk
 - Expense tracking, category analytics, budgets, CSV export, and demo data seeding
 - JWT-based auth flow with protected routes
+- Verified-email signup and secure password recovery
+- Password-confirmed user deletion with transactional data cleanup
 - In-memory MongoDB replica set support for fast local demos
 
 ## Tech Stack
@@ -22,6 +24,7 @@ This repository contains both parts of the project:
 | Backend | Node.js, Express, MongoDB, Mongoose |
 | Frontend | React 19, JavaScript, Vite |
 | Auth | JWT, HTTP cookies |
+| Email | SMTP via Nodemailer |
 
 ## Repository Structure
 
@@ -97,6 +100,12 @@ MONGO_URI=mongodb://127.0.0.1:27017/backend-ledger
 JWT_SECRET=replace-with-a-long-random-secret
 FRONTEND_URL=http://localhost:5173
 COOKIE_SAME_SITE=lax
+EMAIL_FROM=SpendWise <no-reply@your-domain.com>
+SMTP_HOST=smtp.your-provider.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
 ```
 
 Frontend optional `.env`:
@@ -120,7 +129,11 @@ npm run build
 | --- | --- | --- |
 | `GET` | `/api/health` | Service health check |
 | `POST` | `/api/auth/register` | Register a user |
+| `POST` | `/api/auth/verify-email` | Verify a new user's email address |
+| `POST` | `/api/auth/resend-verification` | Send a fresh verification link |
 | `POST` | `/api/auth/login` | Login and create an authenticated session |
+| `POST` | `/api/auth/forgot-password` | Request a password reset email |
+| `POST` | `/api/auth/reset-password` | Set a new password using a reset token |
 | `GET` | `/api/auth/session` | Restore the HttpOnly-cookie browser session |
 | `POST` | `/api/auth/logout` | Logout and blacklist the token |
 | `DELETE` | `/api/auth/account` | Permanently delete the signed-in user and their data |
@@ -143,4 +156,6 @@ npm run build
 - `Transaction` records what happened (income, expense, transfer, or reversal); `Ledger` records how money moved (credit or debit).
 - Budgets are stored per user in MongoDB, so they remain available across devices.
 - Deleting a financial account archives it only after its ledger balance reaches zero; its audit history remains intact.
+- Email verification tokens expire after 24 hours; password-reset tokens expire after one hour. Only SHA-256 token hashes are stored.
+- Password resets invalidate older sessions. User deletion requires the current password and the exact confirmation text `DELETE`.
 - Deleting the user account permanently removes the user and all related SpendWise data in one MongoDB transaction.

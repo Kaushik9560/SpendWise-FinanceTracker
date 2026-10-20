@@ -7,6 +7,14 @@ const connectToDB = require("./src/config/db")
 
 const PORT = process.env.PORT || 3000
 
+function validateProductionConfig() {
+    if (process.env.NODE_ENV !== "production") return
+
+    const required = ["MONGO_URI", "JWT_SECRET", "FRONTEND_URL", "SMTP_HOST", "SMTP_USER", "SMTP_PASS"]
+    const missing = required.filter((name) => !process.env[name])
+    if (missing.length) throw new Error(`Missing production environment variables: ${missing.join(", ")}`)
+}
+
 function serveFrontendInProduction() {
     if (process.env.NODE_ENV !== "production") {
         return
@@ -25,6 +33,7 @@ function serveFrontendInProduction() {
 }
 
 async function startServer() {
+    validateProductionConfig()
     await connectToDB()
     serveFrontendInProduction()
 

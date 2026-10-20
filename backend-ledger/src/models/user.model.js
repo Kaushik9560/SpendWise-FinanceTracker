@@ -22,6 +22,32 @@ const userSchema = new mongoose.Schema({
         minlength: [ 6, "Password should contain at least 6 characters" ],
         maxlength: [ 128, "Password cannot exceed 128 characters" ],
         select: false
+    },
+    emailVerified: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    emailVerificationTokenHash: {
+        type: String,
+        select: false
+    },
+    emailVerificationExpiresAt: {
+        type: Date,
+        select: false
+    },
+    passwordResetTokenHash: {
+        type: String,
+        select: false
+    },
+    passwordResetExpiresAt: {
+        type: Date,
+        select: false
+    },
+    authVersion: {
+        type: Number,
+        default: 0,
+        select: false
     }
 }, {
     timestamps: true
@@ -38,6 +64,15 @@ userSchema.pre("save", async function () {
 
 userSchema.methods.comparePassword = async function (password) {
     return bcrypt.compare(password, this.password)
+}
+
+userSchema.methods.toSafeObject = function () {
+    return {
+        _id: this._id,
+        email: this.email,
+        name: this.name,
+        emailVerified: this.emailVerified
+    }
 }
 
 const userModel = mongoose.model("user", userSchema)

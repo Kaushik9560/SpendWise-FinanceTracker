@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ledgerApi } from "./api"
 import { CATEGORY_META } from "./constants"
 import { Icon } from "./icons"
@@ -14,6 +14,7 @@ import AppSidebar from "./components/AppSidebar"
 import AppTopbar from "./components/AppTopbar"
 import AuthScreen from "./components/AuthScreen"
 import CreateAccountModal from "./components/CreateAccountModal"
+import DeleteUserModal from "./components/DeleteUserModal"
 import ToastContainer from "./components/ToastContainer"
 import AccountsSection from "./sections/AccountsSection"
 import AnalyticsSection from "./sections/AnalyticsSection"
@@ -32,9 +33,13 @@ const navItems = [
 ]
 
 export default function App() {
-    const [mode, setMode] = useState("login")
-    const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" })
-    const [user, setUser] = useState(() => readStoredUser())
+    const urlParams = new URLSearchParams(window.location.search)
+    const [mode, setMode] = useState(urlParams.has("reset") ? "reset" : "login")
+    const [authForm, setAuthForm] = useState({ name: "", email: "", password: "", confirmPassword: "" })
+    const [authNotice, setAuthNotice] = useState(null)
+    const [resetToken] = useState(() => urlParams.get("reset") || "")
+    const verificationStarted = useRef(false)
+    const [user, setUser] = useState(() => urlParams.has("reset") ? null : readStoredUser())
 
     const [accounts, setAccounts] = useState([])
     const [balances, setBalances] = useState({})
@@ -48,6 +53,7 @@ export default function App() {
     const [busyAction, setBusyAction] = useState(null)
     const [showModal, setShowModal] = useState(false)
     const [showAccountModal, setShowAccountModal] = useState(false)
+    const [showDeleteUserModal, setShowDeleteUserModal] = useState(false)
     const [toasts, setToasts] = useState([])
     const [expenseFilter, setExpenseFilter] = useState("all")
     const [budgets, setBudgets] = useState([])
@@ -370,7 +376,42 @@ export default function App() {
     async function handleAuthSubmit(event) {
         event.preventDefault()
 
-        const { name, email, password } = authForm
+        const { name, email, password, confirmPassword } = authForm
+        if (mode === "forgot") {
+            setBusyAction("forgot")
+            try {
+                const response = await ledgerApi.forgotPassword(email.trim().toLowerCase())
+                setAuthNotice(response)
+                showToast("success", response.message)
+                if (response.previewUrl) window.location.assign(response.previewUrl)
+            } catch (error) {
+                showToast("error", error.message)
+            } finally {
+                setBusyAction(null)
+            }
+            return
+        }
+
+        if (mode === "reset") {
+            if (password !== confirmPassword) {
+                showToast("error", "Passwords do not match")
+                return
+            }
+            setBusyAction("reset")
+            try {
+                const response = await ledgerApi.resetPassword(resetToken, password)
+                showToast("success", response.message)
+                window.history.replaceState({}, "", window.location.pathname)
+                setAuthForm({ name: "", email: "", password: "", confirmPassword: "" })
+                setMode("login")
+            } catch (error) {
+                showToast("error", error.message)
+            } finally {
+                setBusyAction(null)
+            }
+            return
+        }
+
         if (mode === "register" && !name.trim()) {
             showToast("error", "Name is required")
             return
@@ -384,12 +425,18 @@ export default function App() {
         setBusyAction(mode)
 
         try {
-            const response = mode === "register"
-                ? await ledgerApi.register({ name: name.trim(), email: email.trim().toLowerCase(), password })
-                : await ledgerApi.login({ email: email.trim().toLowerCase(), password })
+            if (mode === "register") {
+                const response = await ledgerApi.register({ name: name.trim(), email: email.trim().toLowerCase(), password })
+                setAuthNotice(response)
+                setAuthForm((form) => ({ ...form, password: "", confirmPassword: "" }))
+                setMode("verify-pending")
+                showToast("success", response.message)
+                return
+            }
 
+            const response = await ledgerApi.login({ email: email.trim().toLowerCase(), password })
             setAuthenticatedUser(response.user)
-            setAuthForm({ name: "", email: "", password: "" })
+            setAuthForm({ name: "", email: "", password: "", confirmPassword: "" })
             showToast("success", `Welcome, ${response.user.name}!`)
             await Promise.all([
                 loadAccounts(),
@@ -399,7 +446,24 @@ export default function App() {
             ])
             setActiveTab("dashboard")
         } catch (error) {
+            if (error.code === "EMAIL_NOT_VERIFIED") {
+                setAuthNotice({ message: "Verify your email before signing in." })
+                setMode("verify-pending")
+            }
             showToast("error", error instanceof Error ? error.message : "Authentication failed")
+        } finally {
+            setBusyAction(null)
+        }
+    }
+
+    async function handleResendVerification() {
+        setBusyAction("resend")
+        try {
+            const response = await ledgerApi.resendVerification(authForm.email)
+            setAuthNotice(response)
+            showToast("success", response.message)
+        } catch (error) {
+            showToast("error", error.message)
         } finally {
             setBusyAction(null)
         }
@@ -419,14 +483,11 @@ export default function App() {
         setBusyAction(null)
     }
 
-    async function handleDeleteUserAccount() {
-        if (!confirm("Permanently delete your SpendWise account and all financial data? This cannot be undone.")) {
-            return
-        }
-
+    async function handleDeleteUserAccount(credentials) {
         setBusyAction("deleteUserAccount")
         try {
-            await ledgerApi.deleteUserAccount()
+            await ledgerApi.deleteUserAccount(credentials)
+            setShowDeleteUserModal(false)
             clearAuthenticatedSession()
             setMode("login")
             showToast("info", "Your SpendWise account was deleted")
@@ -481,7 +542,31 @@ export default function App() {
     }, [])
 
     useEffect(() => {
+        const verificationToken = new URLSearchParams(window.location.search).get("verify")
+        if (!verificationToken || verificationStarted.current) return
+        verificationStarted.current = true
+
+        async function verify() {
+            setBusyAction("verify")
+            try {
+                const response = await ledgerApi.verifyEmail(verificationToken)
+                showToast("success", response.message)
+                window.history.replaceState({}, "", window.location.pathname)
+                setMode("login")
+            } catch (error) {
+                setAuthNotice({ message: error.message })
+                showToast("error", error.message)
+            } finally {
+                setBusyAction(null)
+            }
+        }
+
+        void verify()
+    }, [])
+
+    useEffect(() => {
         async function restoreSession() {
+            if (resetToken || new URLSearchParams(window.location.search).has("verify")) return
             try {
                 const response = await ledgerApi.session()
                 setAuthenticatedUser(response.user)
@@ -491,7 +576,7 @@ export default function App() {
         }
 
         void restoreSession()
-    }, [])
+    }, [resetToken])
 
     useEffect(() => {
         function handleUnauthorized(event) {
@@ -533,6 +618,8 @@ export default function App() {
                     onSubmit={handleAuthSubmit}
                     health={health}
                     onHealthCheck={runHealthCheck}
+                    authNotice={authNotice}
+                    onResendVerification={handleResendVerification}
                 />
             </>
         )
@@ -554,6 +641,13 @@ export default function App() {
                     busy={busyAction === "createAccount"}
                     onClose={() => setShowAccountModal(false)}
                     onSubmit={handleCreateAccount}
+                />
+            )}
+            {showDeleteUserModal && (
+                <DeleteUserModal
+                    busy={busyAction === "deleteUserAccount"}
+                    onClose={() => setShowDeleteUserModal(false)}
+                    onConfirm={handleDeleteUserAccount}
                 />
             )}
 
@@ -614,7 +708,7 @@ export default function App() {
                             onRefreshAccounts={handleRefreshAccounts}
                             onCreateAccount={() => setShowAccountModal(true)}
                             onDeleteAccount={handleDeleteAccount}
-                            onDeleteUserAccount={handleDeleteUserAccount}
+                            onDeleteUserAccount={() => setShowDeleteUserModal(true)}
                         />
                     )}
 

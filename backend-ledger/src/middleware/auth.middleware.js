@@ -20,11 +20,17 @@ async function requireAuthentication(req, res, next) {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        const user = await userModel.findById(decoded.userId)
+        const user = await userModel.findById(decoded.userId).select("+authVersion")
 
         if (!user) {
             return res.status(401).json({
                 message: "Unauthorized access, user no longer exists"
+            })
+        }
+
+        if (!user.emailVerified || decoded.authVersion !== user.authVersion) {
+            return res.status(401).json({
+                message: "Your session is no longer valid. Please sign in again."
             })
         }
 
@@ -40,3 +46,19 @@ async function requireAuthentication(req, res, next) {
 module.exports = {
     requireAuthentication
 }
+
+// read req.cookies.token
+//        ↓
+// token present?
+//        ↓
+// blacklisted?
+//        ↓
+// jwt.verify()
+//        ↓
+// extract userId
+//        ↓
+// find user
+//        ↓
+// req.user = user
+//        ↓
+// next()
