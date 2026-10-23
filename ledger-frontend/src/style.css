@@ -2054,6 +2054,38 @@ input[type=date]::-webkit-calendar-picker-indicator {
     .topbar .btn { padding: 0.6rem 0.75rem; font-size: 0.78rem; }
     .auth-right { width: 100%; }
     .stats-grid { grid-template-columns: 1fr 1fr; }
+
+    /*
+     * A desktop transaction has five items in one row. On mobile that causes
+     * text overlap, so grid moves the amount and badge to a second row.
+     */
+    .tx-item-full {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "icon info delete"
+            "icon amount badge";
+        column-gap: 0.75rem;
+        row-gap: 0.55rem;
+        padding: 1rem;
+    }
+
+    .tx-item-full .tx-cat-icon {
+        grid-area: icon;
+        width: 40px;
+        height: 40px;
+        align-self: start;
+    }
+
+    .tx-item-full .tx-info { grid-area: info; }
+    .tx-item-full .tx-amount { grid-area: amount; }
+    .tx-item-full .type-badge { grid-area: badge; justify-self: end; }
+    .tx-item-full .delete-btn { grid-area: delete; justify-self: end; }
+
+    .tx-item-full .tx-sub {
+        flex-wrap: wrap;
+        gap: 0.2rem 0.35rem;
+    }
 }
 
 @media (max-width: 440px) {
