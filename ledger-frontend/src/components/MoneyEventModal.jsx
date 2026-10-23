@@ -2,6 +2,7 @@ import { useRef, useState } from "react"
 import { CATEGORY_META } from "../constants"
 import { Icon } from "../icons"
 
+// A function creates fresh default values each time the modal component mounts.
 function emptyMoneyEventForm() {
     return {
         accountId: "",
@@ -13,18 +14,29 @@ function emptyMoneyEventForm() {
     }
 }
 
+// Income and expense use slightly different category lists.
+function categoryMatchesType(category, type) {
+    if (type === "income") {
+        return ["Salary & Income", "Investments", "Others"].includes(category)
+    }
+    return category !== "Salary & Income"
+}
+
 export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
+    // useState stores form values; useRef points to the real overlay DOM element.
     const [form, setForm] = useState(emptyMoneyEventForm)
     const overlayRef = useRef(null)
     const categories = Object.keys(CATEGORY_META)
 
     function handleOverlayClick(event) {
+        // Close only when the dark background is clicked, not the white/blue modal.
         if (event.target === overlayRef.current) {
             onClose()
         }
     }
 
     function setField(field, value) {
+        // Computed property [field] lets one helper update amount, date, category, etc.
         setForm((currentForm) => ({ ...currentForm, [field]: value }))
     }
 
@@ -38,6 +50,7 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                     </button>
                 </div>
 
+                {/* These buttons change the transaction type; they do not submit the form. */}
                 <div className="type-toggle">
                     <button
                         id="type-expense-btn"
@@ -114,9 +127,7 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                         <div className="category-grid">
                             {categories.map((category) => {
                                 const meta = CATEGORY_META[category]
-                                const showCategory = form.type === "income"
-                                    ? ["Salary & Income", "Investments", "Others"].includes(category)
-                                    : category !== "Salary & Income"
+                                const showCategory = categoryMatchesType(category, form.type)
 
                                 if (!showCategory) {
                                     return null

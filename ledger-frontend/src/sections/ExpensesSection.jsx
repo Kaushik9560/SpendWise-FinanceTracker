@@ -11,10 +11,12 @@ export default function ExpensesSection({
     onShowModal,
     onReverseMoneyEvent
 }) {
+    // Parent performs filtering; this section only renders tabs and rows.
     return (
         <div className="page-enter">
             <div className="filter-bar">
                 <div className="filter-tabs">
+                    {/* One array + map is simpler than three copied buttons. */}
                     {FILTERS.map((filter) => (
                         <button
                             key={filter}
@@ -50,6 +52,7 @@ export default function ExpensesSection({
                 <div className="card">
                     <div className="tx-list tx-list-full">
                         {filteredExpenses.map((expense) => {
+                            // Fallback protects the UI if an old row has an unknown category.
                             const meta = CATEGORY_META[expense.category] || { icon: "OT", color: "var(--text-2)" }
 
                             return (

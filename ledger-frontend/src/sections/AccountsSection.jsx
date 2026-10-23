@@ -10,6 +10,7 @@ export default function AccountsSection({
     onDeleteAccount,
     onDeleteUserAccount
 }) {
+    // Accounts and balances arrive separately because balance comes from ledger entries.
     return (
         <div className="page-enter">
             <div className="accounts-actions">
@@ -44,6 +45,7 @@ export default function AccountsSection({
                 </div>
             ) : (
                 <div className="accounts-grid">
+                    {/* key lets React track each account card between renders. */}
                     {accounts.map((account, index) => (
                         <div
                             key={account._id}

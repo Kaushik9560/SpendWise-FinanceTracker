@@ -1,8 +1,21 @@
-/* SpendWise — restrained dark product system */
+/*
+ * SPENDWISE STYLES
+ *
+ * How to read this file:
+ *   .class-name   = styles an element with that className in JSX
+ *   var(--name)   = reuses a design value declared in :root
+ *   display:flex  = arranges children in one row/column
+ *   display:grid  = arranges children in rows and columns
+ *   @media        = changes layout for smaller screens
+ *   @keyframes    = defines animation steps
+ *
+ * Styles are grouped in the same order as the UI: layout, components,
+ * authentication, dashboard sections, then responsive rules.
+ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── Design Tokens ─────────────────────────────────────────── */
+/* DESIGN TOKENS: change a shared value here to update the complete theme. */
 :root {
     /* Colors */
     --bg:          #07111c;
@@ -70,7 +83,7 @@
     --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ── Reset ─────────────────────────────────────────────────── */
+/* RESET: remove browser defaults so every browser starts from the same base. */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { font-size: 16px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
@@ -105,6 +118,7 @@ h2 { font-size: 1.25rem; }
 ════════════════════════════════════════════════════════════ */
 
 .app-shell {
+    /* Flex places the fixed sidebar and flexible page content side by side. */
     display: flex;
     height: 100vh;
     overflow: hidden;
@@ -113,6 +127,7 @@ h2 { font-size: 1.25rem; }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
 .sidebar {
+    /* column keeps logo, navigation, and user details vertically aligned. */
     width: var(--sidebar-w);
     flex-shrink: 0;
     background: var(--bg-2);
@@ -316,6 +331,7 @@ h2 { font-size: 1.25rem; }
 
 /* ── Main Content ──────────────────────────────────────────── */
 .main-content {
+    /* flex: 1 uses all width left after the sidebar. */
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -335,8 +351,6 @@ h2 { font-size: 1.25rem; }
     backdrop-filter: blur(12px);
     flex-shrink: 0;
 }
-
-.topbar-info {}
 
 .page-title {
     font-size: 1.1rem;
@@ -654,6 +668,7 @@ input[type=date]::-webkit-calendar-picker-indicator {
    MODAL
 ════════════════════════════════════════════════════════════ */
 .modal-overlay {
+    /* fixed + inset: 0 covers the full screen behind an open dialog. */
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.7);
@@ -924,6 +939,7 @@ input[type=date]::-webkit-calendar-picker-indicator {
     --auth-muted: #91a1b5;
     --auth-line: #223449;
     --auth-accent: #5d8dff;
+    /* Two columns: flexible brand artwork on the left, auth form on the right. */
     display: grid;
     grid-template-columns: minmax(520px, 1fr) minmax(460px, 560px);
     min-height: 100dvh;
@@ -1017,8 +1033,7 @@ input[type=date]::-webkit-calendar-picker-indicator {
 }
 
 .brand-eyebrow,
-.auth-eyebrow,
-.preview-kicker {
+.auth-eyebrow {
     color: #78a0ff;
     font-size: 0.72rem;
     font-weight: 700;
@@ -1190,138 +1205,6 @@ input[type=date]::-webkit-calendar-picker-indicator {
     text-align: center;
     text-transform: uppercase;
 }
-
-.product-preview {
-    max-width: 540px;
-    padding: 1.35rem;
-    color: #edf3fb;
-    background: #0e1d2c;
-    border: 1px solid #263a50;
-    border-radius: 20px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.24);
-}
-
-.preview-header,
-.preview-plan-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.preview-kicker {
-    color: #7f91a6;
-    letter-spacing: 0.08em;
-}
-
-.preview-period {
-    margin-top: 0.25rem;
-    color: #dfe7f2;
-    font-size: 0.84rem;
-    font-weight: 650;
-}
-
-.preview-sample {
-    padding: 0.32rem 0.6rem;
-    color: #91a4ba;
-    background: #142536;
-    border: 1px solid #263a4e;
-    border-radius: 999px;
-    font-size: 0.65rem;
-    font-weight: 650;
-}
-
-.preview-balance {
-    display: grid;
-    gap: 0.22rem;
-    padding: 1.5rem 0 1.25rem;
-    border-bottom: 1px solid #213448;
-}
-
-.preview-balance > span,
-.preview-metrics span,
-.preview-plan-head span {
-    color: #8fa0b4;
-    font-size: 0.75rem;
-}
-
-.preview-balance strong {
-    font-size: clamp(2rem, 3.2vw, 2.65rem);
-    font-weight: 650;
-    letter-spacing: -0.045em;
-}
-
-.preview-balance small {
-    color: #718399;
-    font-size: 0.68rem;
-}
-
-.preview-metrics {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    padding: 1rem 0;
-}
-
-.preview-metrics > div {
-    display: grid;
-    gap: 0.3rem;
-}
-
-.preview-metrics strong {
-    color: #e4ebf4;
-    font-size: 0.9rem;
-    font-weight: 650;
-}
-
-.preview-metrics .metric-positive { color: #45d2a0; }
-
-.preview-plan {
-    padding: 0.9rem;
-    background: #122333;
-    border-radius: 13px;
-}
-
-.preview-plan-head strong {
-    color: #c4d0df;
-    font-size: 0.7rem;
-}
-
-.preview-progress {
-    height: 6px;
-    margin: 0.75rem 0 0.65rem;
-    overflow: hidden;
-    background: #23374a;
-    border-radius: 999px;
-}
-
-.preview-progress span {
-    display: block;
-    width: 40%;
-    height: 100%;
-    background: #4f82fa;
-    border-radius: inherit;
-}
-
-.preview-categories {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    color: #7c8ea3;
-    font-size: 0.64rem;
-}
-
-.brand-proof {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.2rem;
-    margin-top: 1.4rem;
-    color: #91a2b6;
-    font-size: 0.72rem;
-}
-
-.brand-proof span { display: flex; align-items: center; gap: 0.35rem; }
-.brand-proof b { color: #78a0ff; font-size: 0.75rem; }
 
 /* Auth right panel */
 .auth-right {
@@ -2118,6 +2001,7 @@ input[type=date]::-webkit-calendar-picker-indicator {
 }
 
 @media (max-width: 820px) {
+    /* On tablets/phones the form gets the full screen and artwork is hidden. */
     .auth-page { display: block; }
     .auth-left { display: none; }
     .auth-right {
@@ -2145,6 +2029,7 @@ input[type=date]::-webkit-calendar-picker-indicator {
 }
 
 @media (max-width: 700px) {
+    /* The desktop sidebar becomes a bottom navigation bar on small screens. */
     .app-shell { flex-direction: column; height: 100dvh; }
     .sidebar {
         width: 100%; height: 68px;

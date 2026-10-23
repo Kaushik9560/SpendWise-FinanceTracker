@@ -1,6 +1,7 @@
 import { Icon } from "../icons"
 
 export default function ToastContainer({ toasts, onRemove }) {
+    // map converts each toast object into one visible notification.
     return (
         <div className="toast-container">
             {toasts.map((toast) => (

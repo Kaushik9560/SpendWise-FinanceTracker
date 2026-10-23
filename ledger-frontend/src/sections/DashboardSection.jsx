@@ -13,12 +13,14 @@ export default function DashboardSection({
     onShowModal,
     onSetActiveTab
 }) {
+    // Optional chaining (?.) avoids an error while summary is still loading.
     const netBalance = summary?.summary.netBalance || 0
     const totalIncome = summary?.summary.totalIncome || 0
     const totalExpense = summary?.summary.totalExpense || 0
     const incomeCount = summary?.summary.incomeCount || 0
     const expenseCount = summary?.summary.expenseCount || 0
 
+    // This component is presentational: all data and click actions arrive as props.
     return (
         <div className="page-enter">
             <div className="balance-hero">
@@ -93,6 +95,7 @@ export default function DashboardSection({
                         <button className="btn btn-ghost btn-sm" onClick={() => onSetActiveTab("expenses")}>View all →</button>
                     </div>
                     <div className="card-body">
+                        {/* A ternary shows either an empty state or recent transactions. */}
                         {expenses.length === 0 ? (
                             <div className="empty-state">
                                 <div className="empty-icon">{Icon.expenses}</div>
@@ -104,6 +107,7 @@ export default function DashboardSection({
                             </div>
                         ) : (
                             <div className="tx-list">
+                                {/* slice limits this preview; the Expenses tab shows all rows. */}
                                 {expenses.slice(0, 6).map((expense) => {
                                     const meta = CATEGORY_META[expense.category] || { icon: "OT", color: "var(--text-2)" }
 
@@ -143,6 +147,7 @@ export default function DashboardSection({
                             <div className="cat-bars">
                                 {topExpenseCategories.map(({ cat, total }) => {
                                     const meta = CATEGORY_META[cat] || { icon: "OT", color: "var(--text-2)" }
+                                    // The largest category is 100%; others are proportional to it.
                                     const width = (total / maxCatTotal) * 100
 
                                     return (

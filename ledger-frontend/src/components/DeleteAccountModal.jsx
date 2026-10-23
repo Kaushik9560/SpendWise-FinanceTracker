@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { Icon } from "../icons"
 
 export default function DeleteAccountModal({ account, busy, onClose, onConfirm }) {
+    // Register Escape when the modal opens; cleanup removes it when the modal closes.
     useEffect(() => {
         function closeOnEscape(event) {
             if (event.key === "Escape" && !busy) onClose()
@@ -11,6 +12,7 @@ export default function DeleteAccountModal({ account, busy, onClose, onConfirm }
         return () => window.removeEventListener("keydown", closeOnEscape)
     }, [busy, onClose])
 
+    // This modal asks for confirmation; the backend performs the actual archive.
     return (
         <div className="modal-overlay" role="presentation"
             onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>

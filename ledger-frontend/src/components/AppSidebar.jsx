@@ -11,6 +11,7 @@ export default function AppSidebar({
     onHealthCheck,
     onLogout
 }) {
+    // Parent owns activeTab; sidebar only displays buttons and reports clicks.
     return (
         <aside className="sidebar">
             <div className="sidebar-logo">
@@ -23,6 +24,7 @@ export default function AppSidebar({
 
             <nav className="sidebar-nav">
                 <span className="nav-section-label">Menu</span>
+                {/* map avoids writing six almost identical navigation buttons. */}
                 {navItems.map((item) => (
                     <button
                         key={item.id}

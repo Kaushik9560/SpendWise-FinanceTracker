@@ -1,27 +1,38 @@
+/*
+ * API LAYER
+ * Components never call fetch directly. They call a named method from ledgerApi.
+ * This keeps URL, cookies, timeout, JSON parsing, and errors in one place.
+ */
+
+// Production serves frontend and API from the same origin. Local React uses port 3000 for the API.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
     || (import.meta.env.PROD ? window.location.origin : "http://localhost:3000")
 
 async function request(path, options = {}) {
+    // AbortController lets us cancel a request that takes longer than 15 seconds.
     let response
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 15000)
 
     try {
         response = await fetch(`${API_BASE_URL}${path}`, {
-            method: options.method || "GET",
-            headers: options.body ? { "Content-Type": "application/json" } : {},
-            credentials: "include",
-            body: options.body ? JSON.stringify(options.body) : undefined,
-            signal: controller.signal
+            method: options.method || "GET", // Use GET unless the caller gives POST/DELETE.
+            headers: options.body ? { "Content-Type": "application/json" } : {}, // Tell Express when body is JSON.
+            credentials: "include", // Send the secure HttpOnly login cookie.
+            body: options.body ? JSON.stringify(options.body) : undefined, // Objects must become JSON text.
+            signal: controller.signal // Connect fetch to our timeout controller.
         })
     } catch (error) {
+        // Network and timeout failures happen before an HTTP response exists.
         throw new Error(error.name === "AbortError"
             ? "The server took too long to respond. Please try again."
             : "Unable to connect to the server. Check your connection and try again.")
     } finally {
+        // The request finished, so this timer is no longer needed.
         window.clearTimeout(timeout)
     }
 
+    // Successful and failed API responses both use JSON; this guard handles unexpected HTML/text.
     const contentType = response.headers.get("content-type") || ""
     const data = contentType.includes("application/json")
         ? await response.json()
@@ -30,21 +41,24 @@ async function request(path, options = {}) {
     if (!response.ok) {
         const message = data.message || "Request failed"
 
+        // App.jsx listens for this browser event and returns the user to login.
         if (response.status === 401) {
             window.dispatchEvent(new CustomEvent("ledger:unauthorized", {
                 detail: { message }
             }))
         }
 
+        // Attach backend metadata so auth code can detect cases like EMAIL_NOT_VERIFIED.
         const error = new Error(message)
         error.status = response.status
         error.code = data.code
         throw error
     }
 
-    return data
+    return data // Give parsed backend data back to the component that called us.
 }
 
+// Small named methods make component code read like: ledgerApi.login(details).
 export const ledgerApi = {
     baseUrl: API_BASE_URL,
     health: () => request("/api/health"),

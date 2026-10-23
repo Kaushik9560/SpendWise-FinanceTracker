@@ -2,10 +2,12 @@ import { useState } from "react"
 import { Icon } from "../icons"
 
 export default function CreateAccountModal({ busy, onClose, onSubmit }) {
+    // Controlled input: React state is the single source of truth for the text box.
     const [name, setName] = useState("")
     const trimmedName = name.trim()
 
     function handleSubmit(event) {
+        // Stop the browser's default page refresh and call the parent function.
         event.preventDefault()
 
         if (trimmedName) {
@@ -14,11 +16,13 @@ export default function CreateAccountModal({ busy, onClose, onSubmit }) {
     }
 
     function handleOverlayClick(event) {
+        // currentTarget is the dark overlay; target is the exact clicked element.
         if (event.target === event.currentTarget && !busy) {
             onClose()
         }
     }
 
+    // role="dialog" and aria-modal help screen readers understand the overlay.
     return (
         <div className="modal-overlay" onClick={handleOverlayClick}>
             <div className="modal account-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">

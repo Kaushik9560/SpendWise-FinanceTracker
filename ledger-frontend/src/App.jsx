@@ -24,7 +24,12 @@ import DashboardSection from "./sections/DashboardSection"
 import ExpensesSection from "./sections/ExpensesSection"
 import TransferSection from "./sections/TransferSection"
 
-const navItems = [
+/*
+ * App.jsx is the coordinator of the frontend.
+ * It stores shared state, calls the API, and passes data to small UI components.
+ * Keeping fixed values outside App prevents them from being recreated on every render.
+ */
+const NAV_ITEMS = [
     { id: "dashboard", label: "Dashboard", icon: Icon.dashboard },
     { id: "expenses", label: "Expenses", icon: Icon.expenses },
     { id: "analytics", label: "Analytics", icon: Icon.analytics },
@@ -33,23 +38,48 @@ const navItems = [
     { id: "budget", label: "Budget", icon: Icon.budget }
 ]
 
+const EMPTY_AUTH_FORM = { name: "", email: "", password: "", confirmPassword: "" }
+const EMPTY_TRANSFER = { fromAccount: "", toAccount: "", amount: "" }
+
+// Demo rows are data, not component logic, so they stay outside the component.
+const DEMO_TRANSACTIONS = [
+    { type: "income", category: "Salary & Income", amount: 75000, description: "Monthly salary", daysAgo: 1 },
+    { type: "expense", category: "Rent & Housing", amount: 18000, description: "Monthly rent", daysAgo: 1 },
+    { type: "expense", category: "Food & Dining", amount: 3200, description: "Groceries & dining", daysAgo: 2 },
+    { type: "expense", category: "Transport", amount: 1500, description: "Uber & metro", daysAgo: 3 },
+    { type: "expense", category: "Bills & Utilities", amount: 2100, description: "Electricity & internet", daysAgo: 5 },
+    { type: "expense", category: "Entertainment", amount: 800, description: "Netflix & Hotstar", daysAgo: 7 },
+    { type: "expense", category: "Shopping", amount: 4500, description: "Clothes & accessories", daysAgo: 8 },
+    { type: "income", category: "Investments", amount: 5000, description: "Dividend payout", daysAgo: 10 },
+    { type: "expense", category: "Health & Medical", amount: 1200, description: "Pharmacy & checkup", daysAgo: 12 },
+    { type: "expense", category: "Education", amount: 2500, description: "Udemy courses", daysAgo: 15 }
+]
+
+// API errors are Error objects in normal cases; this helper also handles unknown values.
+function errorMessage(error, fallback) {
+    return error instanceof Error ? error.message : fallback
+}
+
 export default function App() {
+    // URL parameters decide whether the first screen is login, reset, or verification.
     const urlParams = new URLSearchParams(window.location.search)
     const [mode, setMode] = useState(urlParams.has("reset") ? "reset" : "login")
-    const [authForm, setAuthForm] = useState({ name: "", email: "", password: "", confirmPassword: "" })
+    const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM)
     const [authNotice, setAuthNotice] = useState(null)
     const [resetToken] = useState(() => urlParams.get("reset") || "")
     const verificationStarted = useRef(false)
     const [user, setUser] = useState(() => urlParams.has("reset") ? null : readStoredUser())
 
+    // Data received from the backend.
     const [accounts, setAccounts] = useState([])
     const [balances, setBalances] = useState({})
     const [expenses, setExpenses] = useState([])
     const [summary, setSummary] = useState(null)
     const [health, setHealth] = useState("checking")
 
-    const [transfer, setTransfer] = useState({ fromAccount: "", toAccount: "", amount: "" })
+    const [transfer, setTransfer] = useState(EMPTY_TRANSFER)
 
+    // UI-only state: selected tab, open dialogs, filters, and loading buttons.
     const [activeTab, setActiveTab] = useState("dashboard")
     const [busyAction, setBusyAction] = useState(null)
     const [showModal, setShowModal] = useState(false)
@@ -61,6 +91,7 @@ export default function App() {
     const [budgets, setBudgets] = useState([])
     const [budgetEdit, setBudgetEdit] = useState(null)
 
+    // Derived values are calculated from state; they do not need separate useState variables.
     const totalBalance = Object.values(balances).reduce((sum, value) => sum + value, 0)
     const filteredExpenses = expenseFilter === "all"
         ? expenses
@@ -74,6 +105,10 @@ export default function App() {
     const monthlyData = buildMonthlyData(summary?.monthlyTrend || [])
     const maxMonthlyVal = Math.max(...monthlyData.flatMap((month) => [month.income, month.expense]), 1)
 
+    /* TOASTS
+     * A toast is a temporary message. Functional setState receives the latest
+     * array, so quick successive messages do not overwrite one another.
+     */
     function showToast(type, message) {
         const id = Date.now() + Math.random()
         setToasts((currentToasts) => [...currentToasts, { id, type, message }])
@@ -86,6 +121,10 @@ export default function App() {
         setToasts((currentToasts) => currentToasts.filter((toastItem) => toastItem.id !== id))
     }
 
+    /* SESSION HELPERS
+     * localStorage keeps only safe display data. The real JWT stays in the
+     * backend's HttpOnly cookie and is never read by React.
+     */
     function setAuthenticatedUser(nextUser) {
         persistStoredSession(nextUser)
         setUser(nextUser)
@@ -102,6 +141,7 @@ export default function App() {
         setActiveTab("dashboard")
     }
 
+    // Calls the backend health endpoint and converts the result into a UI label.
     async function runHealthCheck() {
         setHealth("checking")
         try {
@@ -112,6 +152,10 @@ export default function App() {
         }
     }
 
+    /* ACCOUNT DATA
+     * First fetch the account list, then fetch every account balance in parallel.
+     * Promise.all waits until all balance requests have finished.
+     */
     async function loadAccounts() {
         try {
             const response = await ledgerApi.listAccounts()
@@ -170,7 +214,7 @@ export default function App() {
             setShowAccountModal(false)
             showToast("success", `${response.account.name} created!`)
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to create account")
+            showToast("error", errorMessage(error, "Failed to create account"))
         } finally {
             setBusyAction(null)
         }
@@ -194,12 +238,15 @@ export default function App() {
             setAccountToDelete(null)
             showToast("success", "Account deleted")
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to delete account")
+            showToast("error", errorMessage(error, "Failed to delete account"))
         } finally {
             setBusyAction(null)
         }
     }
 
+    /* MONEY EVENTS
+     * "Money event" is the frontend name for an income or expense transaction.
+     */
     async function loadMoneyEvents() {
         try {
             const response = await ledgerApi.listMoneyEvents()
@@ -233,7 +280,7 @@ export default function App() {
             setShowModal(false)
             await Promise.all([loadMoneyEvents(), loadMoneyEventSummary(), loadAccounts()])
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to save")
+            showToast("error", errorMessage(error, "Failed to save"))
         } finally {
             setBusyAction(null)
         }
@@ -249,10 +296,11 @@ export default function App() {
             showToast("success", "Entry deleted and balance reversed.")
             await Promise.all([loadMoneyEvents(), loadMoneyEventSummary(), loadAccounts()])
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to delete")
+            showToast("error", errorMessage(error, "Failed to delete"))
         }
     }
 
+    // Adds example rows one-by-one so a new user can quickly explore the charts.
     async function handleSeedData() {
         if (!accounts.length) {
             showToast("error", "Create an account first!")
@@ -263,21 +311,8 @@ export default function App() {
 
         setBusyAction("seeding")
 
-        const seeds = [
-            { type: "income", category: "Salary & Income", amount: 75000, description: "Monthly salary", daysAgo: 1 },
-            { type: "expense", category: "Rent & Housing", amount: 18000, description: "Monthly rent", daysAgo: 1 },
-            { type: "expense", category: "Food & Dining", amount: 3200, description: "Groceries & dining", daysAgo: 2 },
-            { type: "expense", category: "Transport", amount: 1500, description: "Uber & metro", daysAgo: 3 },
-            { type: "expense", category: "Bills & Utilities", amount: 2100, description: "Electricity & internet", daysAgo: 5 },
-            { type: "expense", category: "Entertainment", amount: 800, description: "Netflix & Hotstar", daysAgo: 7 },
-            { type: "expense", category: "Shopping", amount: 4500, description: "Clothes & accessories", daysAgo: 8 },
-            { type: "income", category: "Investments", amount: 5000, description: "Dividend payout", daysAgo: 10 },
-            { type: "expense", category: "Health & Medical", amount: 1200, description: "Pharmacy & checkup", daysAgo: 12 },
-            { type: "expense", category: "Education", amount: 2500, description: "Udemy courses", daysAgo: 15 }
-        ]
-
         let addedCount = 0
-        for (const seed of seeds) {
+        for (const seed of DEMO_TRANSACTIONS) {
             const date = new Date()
             date.setDate(date.getDate() - seed.daysAgo)
 
@@ -301,6 +336,10 @@ export default function App() {
         setBusyAction(null)
     }
 
+    /* CSV EXPORT
+     * Convert each transaction into a row, create an in-memory file (Blob),
+     * click a temporary link, then release the temporary URL.
+     */
     function handleExportCSV() {
         if (!expenses.length) {
             showToast("info", "No transactions to export")
@@ -327,6 +366,9 @@ export default function App() {
         showToast("success", "CSV downloaded!")
     }
 
+    /* BUDGETS
+     * Budgets come from MongoDB, so they remain available on another device.
+     */
     async function loadBudgets() {
         try {
             const response = await ledgerApi.listBudgets()
@@ -353,7 +395,7 @@ export default function App() {
             setBudgetEdit(null)
             showToast("success", "Budget saved for " + category)
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to save budget")
+            showToast("error", errorMessage(error, "Failed to save budget"))
         } finally {
             setBusyAction(null)
         }
@@ -366,93 +408,111 @@ export default function App() {
             setBudgets((currentBudgets) => currentBudgets.filter((budget) => budget.category !== category))
             showToast("info", "Budget removed")
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to remove budget")
+            showToast("error", errorMessage(error, "Failed to remove budget"))
         } finally {
             setBusyAction(null)
         }
     }
 
-    async function handleAuthSubmit(event) {
-        event.preventDefault()
+    /* AUTH ACTIONS
+     * Each screen has its own small function. This is easier to read than one
+     * large function containing deeply nested if/else blocks.
+     */
+    async function submitForgotPassword() {
+        setBusyAction("forgot")
+        try {
+            const email = authForm.email.trim().toLowerCase()
+            const response = await ledgerApi.forgotPassword(email)
+            setAuthNotice(response)
+            showToast("success", response.message)
 
-        const { name, email, password, confirmPassword } = authForm
-        if (mode === "forgot") {
-            setBusyAction("forgot")
-            try {
-                const response = await ledgerApi.forgotPassword(email.trim().toLowerCase())
-                setAuthNotice(response)
-                showToast("success", response.message)
-                if (response.previewUrl) window.location.assign(response.previewUrl)
-            } catch (error) {
-                showToast("error", error.message)
-            } finally {
-                setBusyAction(null)
-            }
+            // Local development may return a preview link instead of sending email.
+            if (response.previewUrl) window.location.assign(response.previewUrl)
+        } catch (error) {
+            showToast("error", errorMessage(error, "Could not send reset email"))
+        } finally {
+            setBusyAction(null)
+        }
+    }
+
+    async function submitPasswordReset() {
+        if (authForm.password !== authForm.confirmPassword) {
+            showToast("error", "Passwords do not match")
             return
         }
 
-        if (mode === "reset") {
-            if (password !== confirmPassword) {
-                showToast("error", "Passwords do not match")
-                return
-            }
-            setBusyAction("reset")
-            try {
-                const response = await ledgerApi.resetPassword(resetToken, password)
-                showToast("success", response.message)
-                window.history.replaceState({}, "", window.location.pathname)
-                setAuthForm({ name: "", email: "", password: "", confirmPassword: "" })
-                setMode("login")
-            } catch (error) {
-                showToast("error", error.message)
-            } finally {
-                setBusyAction(null)
-            }
+        setBusyAction("reset")
+        try {
+            const response = await ledgerApi.resetPassword(resetToken, authForm.password)
+            showToast("success", response.message)
+
+            // Remove the secret reset token from the browser address bar.
+            window.history.replaceState({}, "", window.location.pathname)
+            setAuthForm(EMPTY_AUTH_FORM)
+            setMode("login")
+        } catch (error) {
+            showToast("error", errorMessage(error, "Could not reset password"))
+        } finally {
+            setBusyAction(null)
+        }
+    }
+
+    async function submitRegistration() {
+        const name = authForm.name.trim()
+        const email = authForm.email.trim().toLowerCase()
+
+        if (!name || !email || !authForm.password) {
+            showToast("error", "Name, email and password are required")
             return
         }
 
-        if (mode === "register" && !name.trim()) {
-            showToast("error", "Name is required")
-            return
+        setBusyAction("register")
+        try {
+            const response = await ledgerApi.register({ name, email, password: authForm.password })
+            setAuthNotice(response)
+            setAuthForm((current) => ({ ...current, password: "", confirmPassword: "" }))
+            setMode("verify-pending")
+            showToast("success", response.message)
+        } catch (error) {
+            showToast("error", errorMessage(error, "Registration failed"))
+        } finally {
+            setBusyAction(null)
         }
+    }
 
-        if (!email.trim() || !password) {
+    async function submitLogin() {
+        const email = authForm.email.trim().toLowerCase()
+        if (!email || !authForm.password) {
             showToast("error", "Email and password are required")
             return
         }
 
-        setBusyAction(mode)
-
+        setBusyAction("login")
         try {
-            if (mode === "register") {
-                const response = await ledgerApi.register({ name: name.trim(), email: email.trim().toLowerCase(), password })
-                setAuthNotice(response)
-                setAuthForm((form) => ({ ...form, password: "", confirmPassword: "" }))
-                setMode("verify-pending")
-                showToast("success", response.message)
-                return
-            }
-
-            const response = await ledgerApi.login({ email: email.trim().toLowerCase(), password })
+            const response = await ledgerApi.login({ email, password: authForm.password })
             setAuthenticatedUser(response.user)
-            setAuthForm({ name: "", email: "", password: "", confirmPassword: "" })
-            showToast("success", `Welcome, ${response.user.name}!`)
-            await Promise.all([
-                loadAccounts(),
-                loadMoneyEvents(),
-                loadMoneyEventSummary(),
-                loadBudgets()
-            ])
+            setAuthForm(EMPTY_AUTH_FORM)
             setActiveTab("dashboard")
+            showToast("success", `Welcome, ${response.user.name}!`)
         } catch (error) {
             if (error.code === "EMAIL_NOT_VERIFIED") {
                 setAuthNotice({ message: "Verify your email before signing in." })
                 setMode("verify-pending")
             }
-            showToast("error", error instanceof Error ? error.message : "Authentication failed")
+            showToast("error", errorMessage(error, "Login failed"))
         } finally {
             setBusyAction(null)
         }
+    }
+
+    // The form uses one submit handler, which forwards work to the active screen.
+    async function handleAuthSubmit(event) {
+        event.preventDefault()
+
+        if (mode === "forgot") return submitForgotPassword()
+        if (mode === "reset") return submitPasswordReset()
+        if (mode === "register") return submitRegistration()
+        return submitLogin()
     }
 
     async function handleResendVerification() {
@@ -462,12 +522,16 @@ export default function App() {
             setAuthNotice(response)
             showToast("success", response.message)
         } catch (error) {
-            showToast("error", error.message)
+            showToast("error", errorMessage(error, "Could not resend verification email"))
         } finally {
             setBusyAction(null)
         }
     }
 
+    /* SESSION ACTIONS
+     * Logout clears both server cookie and frontend display state. If the server
+     * is offline, local logout still succeeds so the user is not stuck.
+     */
     async function handleLogout() {
         setBusyAction("logout")
 
@@ -491,12 +555,16 @@ export default function App() {
             setMode("login")
             showToast("info", "Your SpendWise account was deleted")
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Failed to delete user account")
+            showToast("error", errorMessage(error, "Failed to delete user account"))
         } finally {
             setBusyAction(null)
         }
     }
 
+    /* TRANSFER
+     * Client-side validation gives fast feedback. The backend repeats every
+     * validation because browser data must never be trusted.
+     */
     async function handleTransfer(event) {
         event.preventDefault()
 
@@ -527,19 +595,24 @@ export default function App() {
                 idempotencyKey: generateIdempotencyKey()
             })
             showToast("success", `${formatCurrency(parsedAmount)} transferred successfully!`)
-            setTransfer({ fromAccount: "", toAccount: "", amount: "" })
+            setTransfer(EMPTY_TRANSFER)
             await loadAccounts()
         } catch (error) {
-            showToast("error", error instanceof Error ? error.message : "Transfer failed")
+            showToast("error", errorMessage(error, "Transfer failed"))
         } finally {
             setBusyAction(null)
         }
     }
 
+    /* REACT EFFECTS
+     * useEffect runs work that is outside rendering, such as network calls and
+     * browser event listeners. An empty dependency array means "run once".
+     */
     useEffect(() => {
         void runHealthCheck()
     }, [])
 
+    // If the URL contains ?verify=..., verify it once and then clean the URL.
     useEffect(() => {
         const verificationToken = new URLSearchParams(window.location.search).get("verify")
         if (!verificationToken || verificationStarted.current) return
@@ -553,8 +626,9 @@ export default function App() {
                 window.history.replaceState({}, "", window.location.pathname)
                 setMode("login")
             } catch (error) {
-                setAuthNotice({ message: error.message })
-                showToast("error", error.message)
+                const message = errorMessage(error, "Email verification failed")
+                setAuthNotice({ message })
+                showToast("error", message)
             } finally {
                 setBusyAction(null)
             }
@@ -563,6 +637,7 @@ export default function App() {
         void verify()
     }, [])
 
+    // Ask the server whether the browser's HttpOnly cookie is still valid.
     useEffect(() => {
         async function restoreSession() {
             if (resetToken || new URLSearchParams(window.location.search).has("verify")) return
@@ -577,6 +652,7 @@ export default function App() {
         void restoreSession()
     }, [resetToken])
 
+    // api.js dispatches this event after a 401 response (expired/invalid session).
     useEffect(() => {
         function handleUnauthorized(event) {
             if (!readStoredUser()) {
@@ -595,6 +671,7 @@ export default function App() {
         }
     }, [])
 
+    // Whenever login changes user from null to an object, load all private data.
     useEffect(() => {
         if (user) {
             void loadAccounts()
@@ -604,6 +681,10 @@ export default function App() {
         }
     }, [user])
 
+    /* RENDERING
+     * Conditional rendering: guests see authentication; logged-in users see
+     * the dashboard shell. React re-runs this decision whenever user changes.
+     */
     if (!user) {
         return (
             <>
@@ -626,6 +707,7 @@ export default function App() {
 
     return (
         <div className="app-shell">
+            {/* Modals are mounted only while their related state is truthy. */}
             <ToastContainer toasts={toasts} onRemove={removeToast} />
             {showModal && (
                 <MoneyEventModal
@@ -658,10 +740,11 @@ export default function App() {
                 />
             )}
 
+            {/* Sidebar changes activeTab; the page section below reads it. */}
             <AppSidebar
                 user={user}
                 activeTab={activeTab}
-                navItems={navItems}
+                navItems={NAV_ITEMS}
                 health={health}
                 busyAction={busyAction}
                 onSetActiveTab={setActiveTab}
@@ -672,6 +755,7 @@ export default function App() {
             <main className="main-content">
                 <AppTopbar activeTab={activeTab} user={user} onShowModal={() => setShowModal(true)} />
 
+                {/* Only the selected section is rendered. */}
                 <div className="page-body">
                     {activeTab === "dashboard" && (
                         <DashboardSection

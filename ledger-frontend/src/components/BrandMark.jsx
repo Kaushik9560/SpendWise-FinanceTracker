@@ -1,4 +1,5 @@
 export default function BrandMark() {
+    // viewBox makes this SVG logo scale without losing quality.
     return (
         <svg viewBox="0 0 32 32" aria-hidden="true">
             <rect x="3" y="3" width="26" height="26" rx="8" />

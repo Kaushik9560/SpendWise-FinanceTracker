@@ -1,3 +1,9 @@
+/*
+ * SHARED CONSTANTS
+ * Values used by multiple components live here so labels/colors stay consistent.
+ */
+
+// Each transaction category gets a short text icon and one CSS color variable.
 export const CATEGORY_META = {
     "Food & Dining": { icon: "FD", color: "var(--cat-food)" },
     Transport: { icon: "TR", color: "var(--cat-transport)" },
@@ -13,8 +19,10 @@ export const CATEGORY_META = {
     Others: { icon: "OT", color: "var(--cat-others)" }
 }
 
+// MongoDB sends month numbers; charts use this array to show readable labels.
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+// activeTab is a short id; the top bar uses this object to find its heading.
 export const PAGE_TITLES = {
     dashboard: "Dashboard",
     expenses: "Expenses",
@@ -25,6 +33,7 @@ export const PAGE_TITLES = {
 }
 
 export function getPageSubtitle(activeTab, user) {
+    // split(" ")[0] keeps only the first part of a full name.
     const firstName = user.name.split(" ")[0]
     const subtitles = {
         dashboard: `Good to see you, ${firstName}`,

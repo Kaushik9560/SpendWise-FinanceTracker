@@ -9,11 +9,13 @@ export default function AnalyticsSection({
     topExpenseCategories,
     totalExpense
 }) {
+    // Give the UI zeroes until the asynchronous summary request has finished.
     const totalIncome = summary?.summary.totalIncome || 0
     const totalExpenseValue = summary?.summary.totalExpense || 0
     const netBalance = summary?.summary.netBalance || 0
     const incomeCount = summary?.summary.incomeCount || 0
     const expenseCount = summary?.summary.expenseCount || 0
+    // Division needs an income check; otherwise the result could be Infinity/NaN.
     const savingsRate = summary && summary.summary.totalIncome > 0
         ? `${Math.round((summary.summary.netBalance / summary.summary.totalIncome) * 100)}% savings rate`
         : "No income recorded"
@@ -58,6 +60,7 @@ export default function AnalyticsSection({
                                 {monthlyData.map((month) => (
                                     <div key={`${month.label}-${month.year}`} className="bar-col">
                                         <div className="bar-pair">
+                                            {/* 140px is the maximum visual height of a chart bar. */}
                                             <div
                                                 className="bar bar-income"
                                                 style={{ height: `${(month.income / maxMonthlyVal) * 140}px` }}
@@ -96,6 +99,7 @@ export default function AnalyticsSection({
                             <div className="cat-breakdown">
                                 {topExpenseCategories.map(({ cat, total }) => {
                                     const meta = CATEGORY_META[cat] || { icon: "OT", color: "var(--text-2)" }
+                                    // Guard totalExpense to avoid division by zero.
                                     const percent = totalExpense > 0 ? Math.round((total / totalExpense) * 100) : 0
 
                                     return (

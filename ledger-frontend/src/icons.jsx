@@ -1,3 +1,8 @@
+/*
+ * ICON LIBRARY
+ * These are inline SVG elements. Inline SVG inherits CSS color through
+ * currentColor, so one icon can be reused in buttons, cards, and navigation.
+ */
 export const Icon = {
     dashboard: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={3} width={7} height={7} rx={1} /><rect x={14} y={3} width={7} height={7} rx={1} /><rect x={3} y={14} width={7} height={7} rx={1} /><rect x={14} y={14} width={7} height={7} rx={1} /></svg>,
     expenses: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>,

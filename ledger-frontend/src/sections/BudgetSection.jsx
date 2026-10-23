@@ -13,6 +13,7 @@ export default function BudgetSection({
     onSaveBudget,
     onRemoveBudget
 }) {
+    // This section turns every expense category into one budget card.
     return (
         <div className="page-enter">
             <div className="budget-toolbar">
@@ -29,10 +30,13 @@ export default function BudgetSection({
 
             <div className="budget-grid">
                 {Object.entries(CATEGORY_META)
+                    // Income categories do not need spending limits.
                     .filter(([category]) => !["Salary & Income", "Investments"].includes(category))
                     .map(([category, meta]) => {
+                        // find returns the saved budget for the current category.
                         const budget = budgets.find((item) => item.category === category)
                         const spent = categoryTotals[category]?.expense || 0
+                        // Cap only the visual bar at 100%; text still shows the real overage.
                         const percent = budget ? Math.min((spent / budget.limit) * 100, 100) : 0
                         const isOverBudget = budget ? spent > budget.limit : false
                         const isEditing = budgetEdit?.category === category

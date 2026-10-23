@@ -10,6 +10,7 @@ export default function TransferSection({
     onSubmit,
     onGoToAccounts
 }) {
+    // This component owns no state; values and setTransfer come from App.
     return (
         <div className="page-enter">
             <div className="transfer-layout">
@@ -31,6 +32,7 @@ export default function TransferSection({
                             <form onSubmit={onSubmit} className="transfer-form">
                                 <div className="form-group">
                                     <label className="form-label" htmlFor="from-account">From account</label>
+                                    {/* Spread keeps the other fields while replacing fromAccount. */}
                                     <select
                                         id="from-account"
                                         className="form-input form-select"
@@ -56,6 +58,7 @@ export default function TransferSection({
                                         required
                                     >
                                         <option value="">Select destination account...</option>
+                                        {/* Source is filtered out so both accounts cannot be the same. */}
                                         {accounts.filter((account) => account._id !== transfer.fromAccount).map((account) => (
                                             <option key={account._id} value={account._id}>
                                                 {account.name || `Account ...${account._id.slice(-8)}`}

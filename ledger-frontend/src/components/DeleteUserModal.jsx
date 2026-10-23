@@ -2,10 +2,12 @@ import { useEffect, useState } from "react"
 import { Icon } from "../icons"
 
 export default function DeleteUserModal({ busy, onClose, onConfirm }) {
+    // Both fields are required because deleting a complete user is irreversible.
     const [password, setPassword] = useState("")
     const [confirmation, setConfirmation] = useState("")
     const ready = password.length > 0 && confirmation === "DELETE"
 
+    // Effects are useful for browser events that are outside normal React clicks.
     useEffect(() => {
         function closeOnEscape(event) {
             if (event.key === "Escape" && !busy) onClose()
@@ -36,7 +38,10 @@ export default function DeleteUserModal({ busy, onClose, onConfirm }) {
                     </ul>
                 </div>
 
-                <form onSubmit={(event) => { event.preventDefault(); if (ready) onConfirm({ password, confirmation }) }}>
+                <form onSubmit={(event) => {
+                    event.preventDefault()
+                    if (ready) onConfirm({ password, confirmation })
+                }}>
                     <div className="form-group">
                         <label className="form-label" htmlFor="delete-password">Current password</label>
                         <input id="delete-password" className="form-input" type="password" value={password}

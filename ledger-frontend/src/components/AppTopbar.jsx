@@ -2,6 +2,7 @@ import { getPageSubtitle, PAGE_TITLES } from "../constants"
 import { Icon } from "../icons"
 
 export default function AppTopbar({ activeTab, user, onShowModal }) {
+    // activeTab selects text from constants; click opens the transaction modal in App.
     return (
         <div className="topbar">
             <div className="topbar-info">
