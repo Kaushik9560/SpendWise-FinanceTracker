@@ -76,7 +76,7 @@ export default function AuthScreen({
                         <p className="brand-eyebrow">Spend smarter. Live better.</p>
                         <h1>Make every rupee count.</h1>
                         <p className="brand-tagline">
-                            A simpler way to see where your money goes—and shape where it takes you.
+                            A simpler way to see where your money goes and shape where it takes you.
                         </p>
                     </div>
 
