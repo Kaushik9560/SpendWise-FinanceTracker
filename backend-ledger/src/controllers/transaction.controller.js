@@ -1,34 +1,39 @@
-const { transactionModel } = require("../models/transaction.model")
-const ledgerModel = require("../models/ledger.model")
-const accountModel = require("../models/account.model")
 const mongoose = require("mongoose")
+const accountModel = require("../models/account.model")
+const ledgerModel = require("../models/ledger.model")
+const { transactionModel } = require("../models/transaction.model")
 
-function transactionMatches(existingTransaction, { fromAccount, toAccount, amount }) {
-    return existingTransaction.fromAccount.toString() === fromAccount.toString()
-        && existingTransaction.toAccount.toString() === toAccount.toString()
-        && existingTransaction.amount === Number(amount)
+function sameTransfer(transaction, fromAccount, toAccount, amount) {
+    return transaction.fromAccount.toString() === fromAccount.toString()
+        && transaction.toAccount.toString() === toAccount.toString()
+        && transaction.amount === amount
 }
 
-function toTransferResponse(transaction) {
-    const event = transaction.toObject ? transaction.toObject() : transaction
-
+// The frontend only needs these fields after a transfer.
+function transferResponse(transaction) {
     return {
-        fromAccount: event.fromAccount,
-        toAccount: event.toAccount,
-        status: event.status,
-        amount: event.amount,
-        idempotencyKey: event.idempotencyKey,
-        _id: event._id,
-        createdAt: event.createdAt,
-        updatedAt: event.updatedAt,
-        __v: event.__v
+        _id: transaction._id,
+        fromAccount: transaction.fromAccount,
+        toAccount: transaction.toAccount,
+        amount: transaction.amount,
+        status: transaction.status,
+        idempotencyKey: transaction.idempotencyKey,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt
     }
 }
 
+// POST /api/transactions
 async function createTransaction(req, res) {
-    const { fromAccount, toAccount, amount, idempotencyKey } = req.body || {}
+    const fromAccount = req.body?.fromAccount
+    const toAccount = req.body?.toAccount
+    const amount = Number(req.body?.amount)
+    const idempotencyKey = typeof req.body?.idempotencyKey === "string"
+        ? req.body.idempotencyKey.trim()
+        : ""
 
-    if (!fromAccount || !toAccount || amount === undefined || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    // Step 1: validate the request.
+    if (!fromAccount || !toAccount || !idempotencyKey) {
         return res.status(400).json({
             message: "FromAccount, toAccount, amount and idempotencyKey are required"
         })
@@ -38,12 +43,11 @@ async function createTransaction(req, res) {
         return res.status(400).json({ message: "Invalid fromAccount or toAccount" })
     }
 
-    const parsedAmount = Number(amount)
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0 || parsedAmount > Number.MAX_SAFE_INTEGER) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > Number.MAX_SAFE_INTEGER) {
         return res.status(400).json({ message: "Amount must be a positive number" })
     }
 
-    if (idempotencyKey.trim().length > 128) {
+    if (idempotencyKey.length > 128) {
         return res.status(400).json({ message: "Idempotency key cannot exceed 128 characters" })
     }
 
@@ -51,8 +55,7 @@ async function createTransaction(req, res) {
         return res.status(400).json({ message: "Source and destination accounts must be different" })
     }
 
-    const normalizedIdempotencyKey = idempotencyKey.trim()
-
+    // Step 2: both accounts must belong to the logged-in user.
     const sourceAccount = await accountModel.findOne({
         _id: fromAccount,
         user: req.user._id,
@@ -70,46 +73,37 @@ async function createTransaction(req, res) {
     })
 
     if (!destinationAccount) {
-        return res.status(400).json({
-            message: "You can only transfer to your own account"
-        })
+        return res.status(400).json({ message: "You can only transfer to your own account" })
     }
 
-    const existingTransaction = await transactionModel.findOne({
-        idempotencyKey: normalizedIdempotencyKey
-    })
+    // Step 3: the same key means the browser is retrying the same request.
+    const oldTransaction = await transactionModel.findOne({ idempotencyKey })
 
-    if (existingTransaction) {
-        if (!transactionMatches(existingTransaction, { fromAccount, toAccount, amount: parsedAmount })) {
+    if (oldTransaction) {
+        if (!sameTransfer(oldTransaction, fromAccount, toAccount, amount)) {
             return res.status(409).json({
                 message: "Idempotency key has already been used for a different transaction"
             })
         }
 
-        if (existingTransaction.status === "COMPLETED") {
+        if (oldTransaction.status === "COMPLETED") {
             return res.status(200).json({
                 message: "Transaction already processed",
-                transaction: toTransferResponse(existingTransaction)
+                transaction: transferResponse(oldTransaction)
             })
         }
 
-        if (existingTransaction.status === "PENDING") {
-            return res.status(200).json({
-                message: "Transaction is still processing"
-            })
-        }
-
+        return res.status(200).json({ message: "Transaction is still processing" })
     }
 
-
+    // Step 4: save the transaction and both ledger entries as one unit.
+    const session = await mongoose.startSession()
     let transaction
-    let session
 
     try {
-        session = await mongoose.startSession()
         session.startTransaction()
 
-        // This write makes concurrent transfers from the same account conflict safely.
+        // Touching the account makes simultaneous withdrawals conflict safely.
         await accountModel.updateOne(
             { _id: sourceAccount._id, user: req.user._id, isArchived: false },
             { $set: { lastTransactionAt: new Date() } },
@@ -117,64 +111,52 @@ async function createTransaction(req, res) {
         )
 
         const balance = await sourceAccount.getBalance({ session })
-
-        if (balance < parsedAmount) {
+        if (balance < amount) {
             await session.abortTransaction()
             return res.status(400).json({
-                message: `Insufficient balance. Current balance is ${balance}. Requested amount is ${parsedAmount}`
+                message: `Insufficient balance. Current balance is ${balance}. Requested amount is ${amount}`
             })
         }
 
-        transaction = (await transactionModel.create([{
+        const createdTransactions = await transactionModel.create([{
             user: req.user._id,
             type: "TRANSFER",
             fromAccount,
             toAccount,
-            amount: parsedAmount,
-            idempotencyKey: normalizedIdempotencyKey,
+            amount,
+            idempotencyKey,
             status: "PENDING"
-        }], { session }))[ 0 ]
-
-        await ledgerModel.create([{
-            account: fromAccount,
-            amount: parsedAmount,
-            transaction: transaction._id,
-            type: "DEBIT"
         }], { session })
 
-        await ledgerModel.create([{
-            account: toAccount,
-            amount: parsedAmount,
-            transaction: transaction._id,
-            type: "CREDIT"
-        }], { session })
+        transaction = createdTransactions[0]
+
+        // Money leaves one account and enters the other account.
+        await ledgerModel.create([
+            { account: fromAccount, amount, transaction: transaction._id, type: "DEBIT" },
+            { account: toAccount, amount, transaction: transaction._id, type: "CREDIT" }
+        ], { session, ordered: true })
 
         transaction.status = "COMPLETED"
         await transaction.save({ session })
         await session.commitTransaction()
     } catch (error) {
-        if (session?.inTransaction()) {
-            await session.abortTransaction()
-        }
-
+        if (session.inTransaction()) await session.abortTransaction()
         console.error("createTransaction error:", error.message)
-        return res.status(error.code === 11000 ? 409 : 503).json({
-            message: error.code === 11000
+
+        const duplicateKey = error.code === 11000
+        return res.status(duplicateKey ? 409 : 503).json({
+            message: duplicateKey
                 ? "This idempotency key is already being processed"
                 : "Transaction could not be completed safely. Please retry with the same idempotency key."
         })
     } finally {
-        if (session) {
-            session.endSession()
-        }
+        await session.endSession()
     }
 
     return res.status(201).json({
         message: "Transaction completed successfully",
-        transaction: toTransferResponse(transaction)
+        transaction: transferResponse(transaction)
     })
 }
 
-module.exports = {
-    createTransaction
-}
+module.exports = { createTransaction }

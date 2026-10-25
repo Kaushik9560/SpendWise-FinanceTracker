@@ -1,5 +1,6 @@
 const mongoose = require("mongoose")
 
+// A ledger row is one CREDIT or DEBIT applied to one account.
 const ledgerSchema = new mongoose.Schema({
     account: {
         type: mongoose.Schema.Types.ObjectId,
@@ -35,14 +36,15 @@ function preventLedgerModification() {
     throw new Error("Ledger entries are immutable and cannot be modified or deleted")
 }
 
-ledgerSchema.pre("findOneAndUpdate", preventLedgerModification)
-ledgerSchema.pre("updateOne", preventLedgerModification)
-ledgerSchema.pre("deleteOne", preventLedgerModification)
-ledgerSchema.pre("remove", preventLedgerModification)
-ledgerSchema.pre("deleteMany", preventLedgerModification)
-ledgerSchema.pre("updateMany", preventLedgerModification)
-ledgerSchema.pre("findOneAndDelete", preventLedgerModification)
-ledgerSchema.pre("findOneAndReplace", preventLedgerModification)
+// Normal app code may only create ledger rows. Reversals create new opposite rows.
+const blockedOperations = [
+    "findOneAndUpdate", "updateOne", "deleteOne", "remove",
+    "deleteMany", "updateMany", "findOneAndDelete", "findOneAndReplace"
+]
+
+for (const operation of blockedOperations) {
+    ledgerSchema.pre(operation, preventLedgerModification)
+}
 
 const ledgerModel = mongoose.model("ledger", ledgerSchema)
 

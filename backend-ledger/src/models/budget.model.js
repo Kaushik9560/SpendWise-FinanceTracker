@@ -1,6 +1,7 @@
 const mongoose = require("mongoose")
 const { CATEGORIES } = require("./transaction.model")
 
+// A user can set one spending limit for each category.
 const budgetSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,

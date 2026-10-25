@@ -1,6 +1,7 @@
 const mongoose = require("mongoose")
 const bcrypt = require("bcryptjs")
 
+// A user stores login details and short-lived verification/reset information.
 const userSchema = new mongoose.Schema({
     email: {
         type: String,
@@ -19,7 +20,7 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: [ true, "Password is required for creating an account" ],
-        minlength: [ 6, "Password should contain at least 6 characters" ],
+        minlength: [ 8, "Password should contain at least 8 characters" ],
         maxlength: [ 128, "Password cannot exceed 128 characters" ],
         select: false
     },
@@ -53,19 +54,19 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 })
 
+// Hash a new or changed password before it reaches MongoDB.
 userSchema.pre("save", async function () {
-    if (!this.isModified("password")) {
-        return
-    }
+    if (!this.isModified("password")) return
 
-    const hash = await bcrypt.hash(this.password, 10)
-    this.password = hash
+    this.password = await bcrypt.hash(this.password, 10)
 })
 
+// Controllers use this instead of comparing password hashes themselves.
 userSchema.methods.comparePassword = async function (password) {
     return bcrypt.compare(password, this.password)
 }
 
+// Never send password or secret token fields to the frontend.
 userSchema.methods.toSafeObject = function () {
     return {
         _id: this._id,

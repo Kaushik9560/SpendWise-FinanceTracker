@@ -1,5 +1,6 @@
 const mongoose = require("mongoose")
 
+// Logged-out JWTs stay here until their normal three-day expiry time.
 const tokenBlacklistSchema = new mongoose.Schema({
     token: {
         type: String,

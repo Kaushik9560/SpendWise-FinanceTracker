@@ -1,6 +1,7 @@
 const accountModel = require("../models/account.model")
 const mongoose = require("mongoose")
 
+// POST /api/accounts
 async function createAccount(req, res) {
     const { name } = req.body || {}
 
@@ -18,6 +19,7 @@ async function createAccount(req, res) {
     return res.status(201).json({ account })
 }
 
+// GET /api/accounts
 async function listUserAccounts(req, res) {
     const accounts = await accountModel.find({
         user: req.user._id,
@@ -27,6 +29,7 @@ async function listUserAccounts(req, res) {
     return res.status(200).json({ accounts })
 }
 
+// GET /api/accounts/balance/:accountId
 async function getAccountBalance(req, res) {
     const { accountId } = req.params
 
@@ -36,10 +39,9 @@ async function getAccountBalance(req, res) {
         isArchived: false
     })
 
-    if (!account) {
-        return res.status(404).json({ message: "Account not found" })
-    }
+    if (!account) return res.status(404).json({ message: "Account not found" })
 
+    // getBalance adds all credits and subtracts all debits in the ledger.
     const balance = await account.getBalance()
 
     return res.status(200).json({
@@ -48,6 +50,7 @@ async function getAccountBalance(req, res) {
     })
 }
 
+// DELETE /api/accounts/:accountId
 async function archiveAccount(req, res) {
     const { accountId } = req.params
 
@@ -61,10 +64,9 @@ async function archiveAccount(req, res) {
         isArchived: false
     })
 
-    if (!account) {
-        return res.status(404).json({ message: "Account not found" })
-    }
+    if (!account) return res.status(404).json({ message: "Account not found" })
 
+    // A non-zero account cannot disappear while it still contains money.
     const balance = await account.getBalance()
     if (balance !== 0) {
         return res.status(400).json({
@@ -72,6 +74,7 @@ async function archiveAccount(req, res) {
         })
     }
 
+    // Soft delete keeps old financial history but hides the account from the UI.
     account.isArchived = true
     await account.save()
 

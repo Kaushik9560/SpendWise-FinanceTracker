@@ -1,6 +1,7 @@
 const mongoose = require("mongoose")
 const ledgerModel = require("./ledger.model")
 
+// An account is a wallet/bank account owned by one SpendWise user.
 const accountSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
@@ -24,6 +25,7 @@ const accountSchema = new mongoose.Schema({
 })
 
 accountSchema.methods.getBalance = async function (options = {}) {
+    // Balance is calculated from the ledger; it is not stored separately.
     const aggregation = ledgerModel.aggregate([
         { $match: { account: this._id } },
         {
@@ -57,17 +59,11 @@ accountSchema.methods.getBalance = async function (options = {}) {
         }
     ])
 
-    if (options.session) {
-        aggregation.session(options.session)
-    }
+    // Reuse the caller's MongoDB transaction when one is provided.
+    if (options.session) aggregation.session(options.session)
 
     const balanceRows = await aggregation
-
-    if (balanceRows.length === 0) {
-        return 0
-    }
-
-    return balanceRows[ 0 ].balance
+    return balanceRows.length === 0 ? 0 : balanceRows[0].balance
 }
 
 const accountModel = mongoose.model("account", accountSchema)

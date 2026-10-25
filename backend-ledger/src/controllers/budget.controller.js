@@ -1,6 +1,7 @@
 const budgetModel = require("../models/budget.model")
 const { CATEGORIES } = require("../models/transaction.model")
 
+// GET /api/budgets
 async function listBudgets(req, res) {
     const budgets = await budgetModel.find({ user: req.user._id })
         .sort({ category: 1 })
@@ -9,6 +10,7 @@ async function listBudgets(req, res) {
     return res.status(200).json({ budgets })
 }
 
+// POST /api/budgets
 async function saveBudget(req, res) {
     const { category, limit } = req.body || {}
     const parsedLimit = Number(limit)
@@ -21,6 +23,7 @@ async function saveBudget(req, res) {
         return res.status(400).json({ message: "Budget limit must be a positive number" })
     }
 
+    // upsert updates an existing category budget or creates it when missing.
     const budget = await budgetModel.findOneAndUpdate(
         { user: req.user._id, category },
         { $set: { limit: parsedLimit } },
@@ -33,15 +36,14 @@ async function saveBudget(req, res) {
     })
 }
 
+// DELETE /api/budgets/:category
 async function removeBudget(req, res) {
     const budget = await budgetModel.findOneAndDelete({
         user: req.user._id,
         category: req.params.category
     })
 
-    if (!budget) {
-        return res.status(404).json({ message: "Budget not found" })
-    }
+    if (!budget) return res.status(404).json({ message: "Budget not found" })
 
     return res.status(200).json({ message: "Budget removed successfully" })
 }

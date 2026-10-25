@@ -3,62 +3,36 @@ const userModel = require("../models/user.model")
 const tokenBlackListModel = require("../models/blackList.model")
 
 async function requireAuthentication(req, res, next) {
+    // The browser sends the login cookie automatically with every API request.
     const token = req.cookies.token
 
     if (!token) {
-        return res.status(401).json({
-            message: "Unauthorized access, token is missing"
-        })
+        return res.status(401).json({ message: "Unauthorized access, token is missing" })
     }
 
     try {
-        const blacklistedToken = await tokenBlackListModel.findOne({ token })
-        if (blacklistedToken) {
-            return res.status(401).json({
-                message: "Unauthorized access, token is invalid"
-            })
-        }
+        // A blacklisted token belongs to a user who already logged out.
+        const loggedOutToken = await tokenBlackListModel.exists({ token })
+        if (loggedOutToken) return res.status(401).json({ message: "Unauthorized access, token is invalid" })
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
         const user = await userModel.findById(decoded.userId).select("+authVersion")
 
-        if (!user) {
-            return res.status(401).json({
-                message: "Unauthorized access, user no longer exists"
-            })
-        }
+        if (!user) return res.status(401).json({ message: "Unauthorized access, user no longer exists" })
 
+        // authVersion changes after password reset, making old JWTs invalid.
         if (!user.emailVerified || decoded.authVersion !== user.authVersion) {
-            return res.status(401).json({
-                message: "Your session is no longer valid. Please sign in again."
-            })
+            return res.status(401).json({ message: "Your session is no longer valid. Please sign in again." })
         }
 
+        // Controllers can now access the authenticated user as req.user.
         req.user = user
-        next()
+        return next()
     } catch {
-        return res.status(401).json({
-            message: "Unauthorized access, token is invalid"
-        })
+        return res.status(401).json({ message: "Unauthorized access, token is invalid" })
     }
 }
 
 module.exports = {
     requireAuthentication
 }
-
-// read req.cookies.token
-//        ↓
-// token present?
-//        ↓
-// blacklisted?
-//        ↓
-// jwt.verify()
-//        ↓
-// extract userId
-//        ↓
-// find user
-//        ↓
-// req.user = user
-//        ↓
-// next()

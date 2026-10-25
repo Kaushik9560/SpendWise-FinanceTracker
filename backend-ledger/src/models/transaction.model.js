@@ -1,5 +1,6 @@
 const mongoose = require("mongoose")
 
+// Categories are shared by expenses and budgets.
 const CATEGORIES = [
     "Food & Dining",
     "Transport",
@@ -78,6 +79,8 @@ const transactionSchema = new mongoose.Schema({
 })
 
 transactionSchema.index({ user: 1, type: 1, date: -1 })
+
+// The same transfer request cannot be processed twice.
 transactionSchema.index(
     { idempotencyKey: 1 },
     {

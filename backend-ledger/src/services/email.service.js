@@ -2,6 +2,7 @@ function getFrontendUrl() {
     return String(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "")
 }
 
+// One small HTML template is reused by verification and password reset emails.
 function buildEmail({ title, greeting, body, action, actionUrl, expiry }) {
     return `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#172033">
         <h1 style="font-size:24px">${title}</h1><p>${greeting}</p><p>${body}</p>
@@ -15,11 +16,13 @@ async function deliver({ to, subject, html, previewUrl }) {
     const senderEmail = process.env.EMAIL_FROM_ADDRESS
 
     if (!apiKey || !senderEmail) {
+        // During local development return the link instead of sending mail.
         if (process.env.NODE_ENV === "production") throw new Error("Email service is not configured")
         console.info(`[email preview] ${subject}: ${previewUrl}`)
         return { previewUrl }
     }
 
+    // Brevo accepts email details as a normal HTTPS JSON request.
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {

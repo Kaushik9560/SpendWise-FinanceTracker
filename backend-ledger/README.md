@@ -8,15 +8,13 @@ This service powers the SpendWise app with JWT auth, account creation, ledger-ba
 
 - Node.js 22+
 - npm 10+
-- Recommended for evaluation: no local MongoDB needed if you use `npm run dev:memory`
+- MongoDB connection (Atlas or a local replica set)
 
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Starts the API with your configured MongoDB connection |
-| `npm run dev:memory` | Starts the API with an in-memory MongoDB replica set |
-| `npm run dev:full` | Starts `dev:memory` and the frontend dev server together |
 | `npm start` | Starts the API without nodemon |
 | `npm run frontend:dev` | Starts the frontend from this folder |
 | `npm run frontend:build` | Builds the frontend from this folder |
@@ -39,26 +37,14 @@ FRONTEND_URL=http://localhost:5173
 COOKIE_SAME_SITE=lax
 ```
 
-## Recommended Way To Run
-
-```powershell
-npm run dev:memory
-```
-
-Why this mode is recommended:
-
-- no local MongoDB installation is required
-- transfer endpoints work out of the box because Mongo transactions need replica set support
-
-Health endpoint: `GET /api/health`
-
-## If You Want To Use A Real MongoDB Instance
+## Run
 
 ```powershell
 npm run dev
 ```
 
-Use a replica set enabled MongoDB deployment if you want to exercise transfer flows, because the transfer controller uses MongoDB transactions.
+Health endpoint: `GET /api/health`
+Use a replica-set-enabled MongoDB deployment because transfers use MongoDB transactions.
 
 
 ## API Overview
