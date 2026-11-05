@@ -1,59 +1,82 @@
-import { CATEGORY_META } from "../constants"
+import { CATEGORY_DETAILS } from "../categories"
 import { formatCurrency, formatDate } from "../lib/formatters"
 import { Icon } from "../icons"
 
 const FILTERS = ["all", "expense", "income"]
 
-export default function ExpensesSection({
-    expenseFilter,
-    filteredExpenses,
-    onSetExpenseFilter,
-    onShowModal,
-    onReverseMoneyEvent
-}) {
+function getFilterLabel(filter) {
+    if (filter === "all") return "All"
+    if (filter === "expense") return "Expenses"
+    return "Income"
+}
+
+export default function ExpensesSection(props) {
+    const expenseFilter = props.expenseFilter
+    const filteredExpenses = props.filteredExpenses
+    const onSetExpenseFilter = props.onSetExpenseFilter
+    const onShowModal = props.onShowModal
+    const onReverseMoneyEvent = props.onReverseMoneyEvent
+
+    let transactionWord = "transactions"
+    if (filteredExpenses.length === 1) {
+        transactionWord = "transaction"
+    }
+
+    let emptyMessage = `No ${expenseFilter} entries yet.`
+    if (expenseFilter === "all") {
+        emptyMessage = "Add your first transaction to get started."
+    }
+
     // Parent performs filtering; this section only renders tabs and rows.
     return (
         <div className="page-enter">
             <div className="filter-bar">
                 <div className="filter-tabs">
                     {/* One array + map is simpler than three copied buttons. */}
-                    {FILTERS.map((filter) => (
-                        <button
-                            key={filter}
-                            id={`filter-${filter}`}
-                            className={`filter-tab ${expenseFilter === filter ? "active" : ""}`}
-                            onClick={() => onSetExpenseFilter(filter)}
-                        >
-                            {filter === "all" ? "All" : filter === "expense" ? "Expenses" : "Income"}
-                        </button>
-                    ))}
+                    {FILTERS.map((filter) => {
+                        let buttonClass = "filter-tab"
+                        if (expenseFilter === filter) {
+                            buttonClass += " active"
+                        }
+
+                        return (
+                            <button
+                                key={filter}
+                                id={`filter-${filter}`}
+                                className={buttonClass}
+                                onClick={() => onSetExpenseFilter(filter)}
+                            >
+                                {getFilterLabel(filter)}
+                            </button>
+                        )
+                    })}
                 </div>
                 <div className="filter-count">
-                    {filteredExpenses.length} transaction{filteredExpenses.length !== 1 ? "s" : ""}
+                    {filteredExpenses.length} {transactionWord}
                 </div>
             </div>
 
-            {filteredExpenses.length === 0 ? (
+            {filteredExpenses.length === 0 && (
                 <div className="card">
                     <div className="empty-state" style={{ padding: "4rem" }}>
                         <div className="empty-icon">{Icon.expenses}</div>
                         <div className="empty-title">No transactions found</div>
-                        <div className="empty-sub">
-                            {expenseFilter === "all"
-                                ? "Add your first transaction to get started."
-                                : `No ${expenseFilter} entries yet.`}
-                        </div>
+                        <div className="empty-sub">{emptyMessage}</div>
                         <button className="btn btn-primary" onClick={onShowModal} id="expenses-add-btn">
                             {Icon.plus} Add transaction
                         </button>
                     </div>
                 </div>
-            ) : (
+            )}
+
+            {filteredExpenses.length > 0 && (
                 <div className="card">
                     <div className="tx-list tx-list-full">
                         {filteredExpenses.map((expense) => {
                             // Fallback protects the UI if an old row has an unknown category.
-                            const meta = CATEGORY_META[expense.category] || { icon: "OT", color: "var(--text-2)" }
+                            const meta = CATEGORY_DETAILS[expense.category] || { icon: "OT", color: "var(--text-2)" }
+                            let amountSign = "−"
+                            if (expense.type === "income") amountSign = "+"
 
                             return (
                                 <div key={expense._id} className="tx-item tx-item-full" id={`tx-${expense._id}`}>
@@ -69,7 +92,7 @@ export default function ExpensesSection({
                                         </div>
                                     </div>
                                     <div className={`tx-amount ${expense.type}`}>
-                                        {expense.type === "income" ? "+" : "−"}{formatCurrency(expense.amount)}
+                                        {amountSign}{formatCurrency(expense.amount)}
                                     </div>
                                     <span className={`type-badge badge-${expense.type}`}>{expense.type}</span>
                                     <button

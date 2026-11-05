@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { ledgerApi } from "./api"
-import { CATEGORY_META } from "./constants"
 import { Icon } from "./icons"
 import { buildCategoryTotals, buildMonthlyData, buildTopExpenseCategories } from "./lib/analytics"
 import { formatCurrency, generateIdempotencyKey } from "./lib/formatters"
@@ -24,11 +23,7 @@ import DashboardSection from "./sections/DashboardSection"
 import ExpensesSection from "./sections/ExpensesSection"
 import TransferSection from "./sections/TransferSection"
 
-/*
- * App.jsx is the coordinator of the frontend.
- * It stores shared state, calls the API, and passes data to small UI components.
- * Keeping fixed values outside App prevents them from being recreated on every render.
- */
+// These values are used only by App, so they stay beside App.
 const NAV_ITEMS = [
     { id: "dashboard", label: "Dashboard", icon: Icon.dashboard },
     { id: "expenses", label: "Expenses", icon: Icon.expenses },
@@ -41,7 +36,6 @@ const NAV_ITEMS = [
 const EMPTY_AUTH_FORM = { name: "", email: "", password: "", confirmPassword: "" }
 const EMPTY_TRANSFER = { fromAccount: "", toAccount: "", amount: "" }
 
-// Demo rows are data, not component logic, so they stay outside the component.
 const DEMO_TRANSACTIONS = [
     { type: "income", category: "Salary & Income", amount: 75000, description: "Monthly salary", daysAgo: 1 },
     { type: "expense", category: "Rent & Housing", amount: 18000, description: "Monthly rent", daysAgo: 1 },
@@ -55,20 +49,41 @@ const DEMO_TRANSACTIONS = [
     { type: "expense", category: "Education", amount: 2500, description: "Udemy courses", daysAgo: 15 }
 ]
 
+/*
+ * App.jsx is the coordinator of the frontend.
+ * It stores shared state, calls the API, and passes data to small UI components.
+ * Keeping fixed values outside App prevents them from being recreated on every render.
+ */
 // API errors are Error objects in normal cases; this helper also handles unknown values.
 function errorMessage(error, fallback) {
-    return error instanceof Error ? error.message : fallback
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    return fallback
 }
 
 export default function App() {
     // URL parameters decide whether the first screen is login, reset, or verification.
     const urlParams = new URLSearchParams(window.location.search)
-    const [mode, setMode] = useState(urlParams.has("reset") ? "reset" : "login")
+
+    let startingMode = "login"
+    if (urlParams.has("reset")) {
+        startingMode = "reset"
+    }
+
+    let startingUser = readStoredUser()
+    if (urlParams.has("reset")) {
+        startingUser = null
+    }
+
+    const resetToken = urlParams.get("reset") || ""
+
+    const [mode, setMode] = useState(startingMode)
     const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM)
     const [authNotice, setAuthNotice] = useState(null)
-    const [resetToken] = useState(() => urlParams.get("reset") || "")
     const verificationStarted = useRef(false)
-    const [user, setUser] = useState(() => urlParams.has("reset") ? null : readStoredUser())
+    const [user, setUser] = useState(startingUser)
 
     // Data received from the backend.
     const [accounts, setAccounts] = useState([])
@@ -92,18 +107,43 @@ export default function App() {
     const [budgetEdit, setBudgetEdit] = useState(null)
 
     // Derived values are calculated from state; they do not need separate useState variables.
-    const totalBalance = Object.values(balances).reduce((sum, value) => sum + value, 0)
-    const filteredExpenses = expenseFilter === "all"
-        ? expenses
-        : expenses.filter((expense) => expense.type === expenseFilter)
+    let totalBalance = 0
+    const accountBalances = Object.values(balances)
+
+    accountBalances.forEach((balance) => {
+        totalBalance += balance
+    })
+
+    let filteredExpenses = expenses
+    if (expenseFilter !== "all") {
+        filteredExpenses = expenses.filter((expense) => expense.type === expenseFilter)
+    }
 
     const categoryTotals = buildCategoryTotals(expenses)
     const topExpenseCategories = buildTopExpenseCategories(categoryTotals)
-    const totalExpense = summary?.summary.totalExpense || 0
-    const maxCatTotal = topExpenseCategories[0]?.total || 1
+    let totalExpense = 0
+    let monthlyTrend = []
 
-    const monthlyData = buildMonthlyData(summary?.monthlyTrend || [])
-    const maxMonthlyVal = Math.max(...monthlyData.flatMap((month) => [month.income, month.expense]), 1)
+    if (summary && summary.summary) {
+        totalExpense = summary.summary.totalExpense
+    }
+
+    if (summary && summary.monthlyTrend) {
+        monthlyTrend = summary.monthlyTrend
+    }
+
+    let maxCatTotal = 1
+    if (topExpenseCategories.length > 0) {
+        maxCatTotal = topExpenseCategories[0].total
+    }
+
+    const monthlyData = buildMonthlyData(monthlyTrend)
+    let maxMonthlyVal = 1
+
+    monthlyData.forEach((month) => {
+        if (month.income > maxMonthlyVal) maxMonthlyVal = month.income
+        if (month.expense > maxMonthlyVal) maxMonthlyVal = month.expense
+    })
 
     /* TOASTS
      * A toast is a temporary message. Functional setState receives the latest
@@ -152,10 +192,7 @@ export default function App() {
         }
     }
 
-    /* ACCOUNT DATA
-     * First fetch the account list, then fetch every account balance in parallel.
-     * Promise.all waits until all balance requests have finished.
-     */
+    // Load the account list, then request all balances at the same time.
     async function loadAccounts() {
         try {
             const response = await ledgerApi.listAccounts()
@@ -163,14 +200,17 @@ export default function App() {
 
             const balanceMap = {}
 
-            await Promise.all(response.accounts.map(async (account) => {
+            const balanceRequests = response.accounts.map(async (account) => {
                 try {
                     const balanceResponse = await ledgerApi.getBalance(account._id)
                     balanceMap[account._id] = balanceResponse.balance
                 } catch {
                     balanceMap[account._id] = 0
                 }
-            }))
+            })
+
+            // Promise.all waits until every independent balance request finishes.
+            await Promise.all(balanceRequests)
 
             setBalances(balanceMap)
         } catch {
@@ -209,8 +249,12 @@ export default function App() {
         setBusyAction("createAccount")
         try {
             const response = await ledgerApi.createAccount({ name: trimmedName })
-            setAccounts((currentAccounts) => [response.account, ...currentAccounts])
-            setBalances((currentBalances) => ({ ...currentBalances, [response.account._id]: 0 }))
+            const updatedAccounts = [response.account, ...accounts]
+            const updatedBalances = { ...balances }
+            updatedBalances[response.account._id] = 0
+
+            setAccounts(updatedAccounts)
+            setBalances(updatedBalances)
             setShowAccountModal(false)
             showToast("success", `${response.account.name} created!`)
         } catch (error) {
@@ -224,17 +268,18 @@ export default function App() {
         setBusyAction("deleteAccount")
         try {
             await ledgerApi.deleteAccount(account._id)
-            setAccounts((currentAccounts) => currentAccounts.filter((item) => item._id !== account._id))
-            setBalances((currentBalances) => {
-                const nextBalances = { ...currentBalances }
-                delete nextBalances[account._id]
-                return nextBalances
-            })
-            setTransfer((currentTransfer) => ({
-                fromAccount: currentTransfer.fromAccount === account._id ? "" : currentTransfer.fromAccount,
-                toAccount: currentTransfer.toAccount === account._id ? "" : currentTransfer.toAccount,
-                amount: currentTransfer.amount
-            }))
+
+            const updatedAccounts = accounts.filter((item) => item._id !== account._id)
+            const updatedBalances = { ...balances }
+            delete updatedBalances[account._id]
+
+            const updatedTransfer = { ...transfer }
+            if (updatedTransfer.fromAccount === account._id) updatedTransfer.fromAccount = ""
+            if (updatedTransfer.toAccount === account._id) updatedTransfer.toAccount = ""
+
+            setAccounts(updatedAccounts)
+            setBalances(updatedBalances)
+            setTransfer(updatedTransfer)
             setAccountToDelete(null)
             showToast("success", "Account deleted")
         } catch (error) {
@@ -276,9 +321,20 @@ export default function App() {
                 description: form.description,
                 date: form.date
             })
-            showToast("success", `${form.type === "income" ? "Income" : "Expense"} recorded!`)
+            let eventName = "Expense"
+            if (form.type === "income") {
+                eventName = "Income"
+            }
+
+            showToast("success", `${eventName} recorded!`)
             setShowModal(false)
-            await Promise.all([loadMoneyEvents(), loadMoneyEventSummary(), loadAccounts()])
+
+            // These requests are independent, so running them together is faster.
+            await Promise.all([
+                loadMoneyEvents(),
+                loadMoneyEventSummary(),
+                loadAccounts()
+            ])
         } catch (error) {
             showToast("error", errorMessage(error, "Failed to save"))
         } finally {
@@ -294,7 +350,11 @@ export default function App() {
         try {
             await ledgerApi.reverseMoneyEvent(id)
             showToast("success", "Entry deleted and balance reversed.")
-            await Promise.all([loadMoneyEvents(), loadMoneyEventSummary(), loadAccounts()])
+            await Promise.all([
+                loadMoneyEvents(),
+                loadMoneyEventSummary(),
+                loadAccounts()
+            ])
         } catch (error) {
             showToast("error", errorMessage(error, "Failed to delete"))
         }
@@ -311,29 +371,37 @@ export default function App() {
 
         setBusyAction("seeding")
 
-        let addedCount = 0
-        for (const seed of DEMO_TRANSACTIONS) {
-            const date = new Date()
-            date.setDate(date.getDate() - seed.daysAgo)
+        try {
+            let addedCount = 0
 
-            try {
-                await ledgerApi.createMoneyEvent({
-                    accountId: activeAccount._id,
-                    amount: seed.amount,
-                    type: seed.type,
-                    category: seed.category,
-                    description: seed.description,
-                    date: date.toISOString().split("T")[0]
-                })
-                addedCount += 1
-            } catch {
-                // Skip entries that cannot be added, usually due to balance checks.
+            for (const demoTransaction of DEMO_TRANSACTIONS) {
+                const date = new Date()
+                date.setDate(date.getDate() - demoTransaction.daysAgo)
+
+                try {
+                    await ledgerApi.createMoneyEvent({
+                        accountId: activeAccount._id,
+                        amount: demoTransaction.amount,
+                        type: demoTransaction.type,
+                        category: demoTransaction.category,
+                        description: demoTransaction.description,
+                        date: date.toISOString().split("T")[0]
+                    })
+                    addedCount += 1
+                } catch {
+                    // Skip an entry if the backend rejects it.
+                }
             }
-        }
 
-        await Promise.all([loadMoneyEvents(), loadMoneyEventSummary(), loadAccounts()])
-        showToast("success", `${addedCount} demo transactions added!`)
-        setBusyAction(null)
+            await Promise.all([
+                loadMoneyEvents(),
+                loadMoneyEventSummary(),
+                loadAccounts()
+            ])
+            showToast("success", `${addedCount} demo transactions added!`)
+        } finally {
+            setBusyAction(null)
+        }
     }
 
     /* CSV EXPORT
@@ -347,15 +415,31 @@ export default function App() {
         }
 
         const headers = ["Date", "Type", "Category", "Description", "Amount (INR)"]
-        const rows = expenses.map((expense) => [
-            new Date(expense.date).toLocaleDateString("en-IN"),
-            expense.type,
-            expense.category,
-            `"${expense.description.replace(/"/g, "\"\"")}"`,
-            expense.amount
-        ])
+        const rows = []
 
-        const csv = [headers, ...rows].map((row) => row.join(",")).join("\n")
+        for (const expense of expenses) {
+            const row = [
+                new Date(expense.date).toLocaleDateString("en-IN"),
+                expense.type,
+                expense.category,
+                `"${expense.description.replace(/"/g, "\"\"")}"`,
+                expense.amount
+            ]
+
+            rows.push(row)
+        }
+
+        const csvLines = [headers]
+        for (const row of rows) {
+            csvLines.push(row)
+        }
+
+        const textLines = []
+        for (const row of csvLines) {
+            textLines.push(row.join(","))
+        }
+
+        const csv = textLines.join("\n")
         const blob = new Blob([csv], { type: "text/csv" })
         const url = URL.createObjectURL(blob)
         const anchor = document.createElement("a")
@@ -388,10 +472,10 @@ export default function App() {
         setBusyAction("saveBudget")
         try {
             const response = await ledgerApi.saveBudget({ category, limit })
-            setBudgets((currentBudgets) => [
-                ...currentBudgets.filter((budget) => budget.category !== category),
-                response.budget
-            ])
+            const otherBudgets = budgets.filter((budget) => budget.category !== category)
+            const updatedBudgets = [...otherBudgets, response.budget]
+
+            setBudgets(updatedBudgets)
             setBudgetEdit(null)
             showToast("success", "Budget saved for " + category)
         } catch (error) {
@@ -405,7 +489,8 @@ export default function App() {
         setBusyAction("removeBudget")
         try {
             await ledgerApi.removeBudget(category)
-            setBudgets((currentBudgets) => currentBudgets.filter((budget) => budget.category !== category))
+            const updatedBudgets = budgets.filter((budget) => budget.category !== category)
+            setBudgets(updatedBudgets)
             showToast("info", "Budget removed")
         } catch (error) {
             showToast("error", errorMessage(error, "Failed to remove budget"))
@@ -470,7 +555,12 @@ export default function App() {
         try {
             const response = await ledgerApi.register({ name, email, password: authForm.password })
             setAuthNotice(response)
-            setAuthForm((current) => ({ ...current, password: "", confirmPassword: "" }))
+            setAuthForm({
+                name: authForm.name,
+                email: authForm.email,
+                password: "",
+                confirmPassword: ""
+            })
             setMode("verify-pending")
             showToast("success", response.message)
         } catch (error) {
@@ -568,7 +658,9 @@ export default function App() {
     async function handleTransfer(event) {
         event.preventDefault()
 
-        const { fromAccount, toAccount, amount } = transfer
+        const fromAccount = transfer.fromAccount
+        const toAccount = transfer.toAccount
+        const amount = transfer.amount
         if (!fromAccount || !toAccount || !amount) {
             showToast("error", "Fill all fields")
             return
@@ -602,6 +694,131 @@ export default function App() {
         } finally {
             setBusyAction(null)
         }
+    }
+
+    // These small functions clearly show which state opens or closes each dialog.
+    function openMoneyEventModal() {
+        setShowModal(true)
+    }
+
+    function closeMoneyEventModal() {
+        setShowModal(false)
+    }
+
+    function openCreateAccountModal() {
+        setShowAccountModal(true)
+    }
+
+    function closeCreateAccountModal() {
+        setShowAccountModal(false)
+    }
+
+    function closeDeleteAccountModal() {
+        setAccountToDelete(null)
+    }
+
+    function confirmDeleteAccount() {
+        void handleDeleteAccount(accountToDelete)
+    }
+
+    function openDeleteUserModal() {
+        setShowDeleteUserModal(true)
+    }
+
+    function closeDeleteUserModal() {
+        setShowDeleteUserModal(false)
+    }
+
+    function showAccountsPage() {
+        setActiveTab("accounts")
+    }
+
+    /* PAGE SELECTION
+     * The sidebar changes activeTab. This function returns the matching page.
+     * Using normal if statements keeps the main JSX free from many conditions.
+     */
+    function renderActiveSection() {
+        if (activeTab === "dashboard") {
+            return (
+                <DashboardSection
+                    summary={summary}
+                    accounts={accounts}
+                    balances={balances}
+                    totalBalance={totalBalance}
+                    expenses={expenses}
+                    topExpenseCategories={topExpenseCategories}
+                    maxCatTotal={maxCatTotal}
+                    onShowModal={openMoneyEventModal}
+                    onSetActiveTab={setActiveTab}
+                />
+            )
+        }
+
+        if (activeTab === "expenses") {
+            return (
+                <ExpensesSection
+                    expenseFilter={expenseFilter}
+                    filteredExpenses={filteredExpenses}
+                    onSetExpenseFilter={setExpenseFilter}
+                    onShowModal={openMoneyEventModal}
+                    onReverseMoneyEvent={handleReverseMoneyEvent}
+                />
+            )
+        }
+
+        if (activeTab === "analytics") {
+            return (
+                <AnalyticsSection
+                    summary={summary}
+                    monthlyData={monthlyData}
+                    maxMonthlyVal={maxMonthlyVal}
+                    topExpenseCategories={topExpenseCategories}
+                    totalExpense={totalExpense}
+                />
+            )
+        }
+
+        if (activeTab === "accounts") {
+            return (
+                <AccountsSection
+                    accounts={accounts}
+                    balances={balances}
+                    busyAction={busyAction}
+                    onRefreshAccounts={handleRefreshAccounts}
+                    onCreateAccount={openCreateAccountModal}
+                    onDeleteAccount={setAccountToDelete}
+                    onDeleteUserAccount={openDeleteUserModal}
+                />
+            )
+        }
+
+        if (activeTab === "transfer") {
+            return (
+                <TransferSection
+                    accounts={accounts}
+                    balances={balances}
+                    transfer={transfer}
+                    setTransfer={setTransfer}
+                    busyAction={busyAction}
+                    onSubmit={handleTransfer}
+                    onGoToAccounts={showAccountsPage}
+                />
+            )
+        }
+
+        return (
+            <BudgetSection
+                budgets={budgets}
+                budgetEdit={budgetEdit}
+                setBudgetEdit={setBudgetEdit}
+                categoryTotals={categoryTotals}
+                busyAction={busyAction}
+                onSeedData={handleSeedData}
+                onExportCSV={handleExportCSV}
+                onSaveBudget={handleSaveBudget}
+                onRemoveBudget={handleRemoveBudget}
+            />
+        )
     }
 
     /* REACT EFFECTS
@@ -661,7 +878,12 @@ export default function App() {
 
             clearAuthenticatedSession()
             setMode("login")
-            showToast("info", event.detail?.message || "Session expired. Please sign in again.")
+            let message = "Session expired. Please sign in again."
+            if (event.detail && event.detail.message) {
+                message = event.detail.message
+            }
+
+            showToast("info", message)
         }
 
         window.addEventListener("ledger:unauthorized", handleUnauthorized)
@@ -696,8 +918,6 @@ export default function App() {
                     setAuthForm={setAuthForm}
                     busyAction={busyAction}
                     onSubmit={handleAuthSubmit}
-                    health={health}
-                    onHealthCheck={runHealthCheck}
                     authNotice={authNotice}
                     onResendVerification={handleResendVerification}
                 />
@@ -712,7 +932,7 @@ export default function App() {
             {showModal && (
                 <MoneyEventModal
                     accounts={accounts}
-                    onClose={() => setShowModal(false)}
+                    onClose={closeMoneyEventModal}
                     onSubmit={handleAddMoneyEvent}
                     busy={busyAction === "addMoneyEvent"}
                 />
@@ -720,7 +940,7 @@ export default function App() {
             {showAccountModal && (
                 <CreateAccountModal
                     busy={busyAction === "createAccount"}
-                    onClose={() => setShowAccountModal(false)}
+                    onClose={closeCreateAccountModal}
                     onSubmit={handleCreateAccount}
                 />
             )}
@@ -728,14 +948,14 @@ export default function App() {
                 <DeleteAccountModal
                     account={accountToDelete}
                     busy={busyAction === "deleteAccount"}
-                    onClose={() => setAccountToDelete(null)}
-                    onConfirm={() => void handleDeleteAccount(accountToDelete)}
+                    onClose={closeDeleteAccountModal}
+                    onConfirm={confirmDeleteAccount}
                 />
             )}
             {showDeleteUserModal && (
                 <DeleteUserModal
                     busy={busyAction === "deleteUserAccount"}
-                    onClose={() => setShowDeleteUserModal(false)}
+                    onClose={closeDeleteUserModal}
                     onConfirm={handleDeleteUserAccount}
                 />
             )}
@@ -753,82 +973,10 @@ export default function App() {
             />
 
             <main className="main-content">
-                <AppTopbar activeTab={activeTab} user={user} onShowModal={() => setShowModal(true)} />
+                <AppTopbar activeTab={activeTab} user={user} onShowModal={openMoneyEventModal} />
 
                 {/* Only the selected section is rendered. */}
-                <div className="page-body">
-                    {activeTab === "dashboard" && (
-                        <DashboardSection
-                            summary={summary}
-                            accounts={accounts}
-                            balances={balances}
-                            totalBalance={totalBalance}
-                            expenses={expenses}
-                            topExpenseCategories={topExpenseCategories}
-                            maxCatTotal={maxCatTotal}
-                            onShowModal={() => setShowModal(true)}
-                            onSetActiveTab={setActiveTab}
-                        />
-                    )}
-
-                    {activeTab === "expenses" && (
-                        <ExpensesSection
-                            expenseFilter={expenseFilter}
-                            filteredExpenses={filteredExpenses}
-                            onSetExpenseFilter={setExpenseFilter}
-                            onShowModal={() => setShowModal(true)}
-                            onReverseMoneyEvent={handleReverseMoneyEvent}
-                        />
-                    )}
-
-                    {activeTab === "analytics" && (
-                        <AnalyticsSection
-                            summary={summary}
-                            monthlyData={monthlyData}
-                            maxMonthlyVal={maxMonthlyVal}
-                            topExpenseCategories={topExpenseCategories}
-                            totalExpense={totalExpense}
-                        />
-                    )}
-
-                    {activeTab === "accounts" && (
-                        <AccountsSection
-                            accounts={accounts}
-                            balances={balances}
-                            busyAction={busyAction}
-                            onRefreshAccounts={handleRefreshAccounts}
-                            onCreateAccount={() => setShowAccountModal(true)}
-                            onDeleteAccount={setAccountToDelete}
-                            onDeleteUserAccount={() => setShowDeleteUserModal(true)}
-                        />
-                    )}
-
-                    {activeTab === "transfer" && (
-                        <TransferSection
-                            accounts={accounts}
-                            balances={balances}
-                            transfer={transfer}
-                            setTransfer={setTransfer}
-                            busyAction={busyAction}
-                            onSubmit={handleTransfer}
-                            onGoToAccounts={() => setActiveTab("accounts")}
-                        />
-                    )}
-
-                    {activeTab === "budget" && (
-                        <BudgetSection
-                            budgets={budgets}
-                            budgetEdit={budgetEdit}
-                            setBudgetEdit={setBudgetEdit}
-                            categoryTotals={categoryTotals}
-                            busyAction={busyAction}
-                            onSeedData={handleSeedData}
-                            onExportCSV={handleExportCSV}
-                            onSaveBudget={handleSaveBudget}
-                            onRemoveBudget={handleRemoveBudget}
-                        />
-                    )}
-                </div>
+                <div className="page-body">{renderActiveSection()}</div>
             </main>
         </div>
     )

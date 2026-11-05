@@ -1,7 +1,12 @@
 import { useEffect } from "react"
 import { Icon } from "../icons"
 
-export default function DeleteAccountModal({ account, busy, onClose, onConfirm }) {
+export default function DeleteAccountModal(props) {
+    const account = props.account
+    const busy = props.busy
+    const onClose = props.onClose
+    const onConfirm = props.onConfirm
+
     // Register Escape when the modal opens; cleanup removes it when the modal closes.
     useEffect(() => {
         function closeOnEscape(event) {
@@ -12,10 +17,17 @@ export default function DeleteAccountModal({ account, busy, onClose, onConfirm }
         return () => window.removeEventListener("keydown", closeOnEscape)
     }, [busy, onClose])
 
+    function handleOverlayMouseDown(event) {
+        const clickedOutsideModal = event.target === event.currentTarget
+
+        if (clickedOutsideModal && !busy) {
+            onClose()
+        }
+    }
+
     // This modal asks for confirmation; the backend performs the actual archive.
     return (
-        <div className="modal-overlay" role="presentation"
-            onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
+        <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayMouseDown}>
             <section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
                 <div className="delete-modal-header">
                     <div className="delete-modal-icon">{Icon.trash}</div>
@@ -42,7 +54,10 @@ export default function DeleteAccountModal({ account, busy, onClose, onConfirm }
                 <div className="modal-actions">
                     <button className="btn btn-secondary" type="button" onClick={onClose} disabled={busy} autoFocus>Keep account</button>
                     <button className="btn btn-danger account-delete-button" type="button" onClick={onConfirm} disabled={busy}>
-                        {busy ? <><span className="spinner" /> Deleting...</> : <>{Icon.trash} Delete account</>}
+                        {busy && <span className="spinner" />}
+                        {busy && "Deleting..."}
+                        {!busy && Icon.trash}
+                        {!busy && "Delete account"}
                     </button>
                 </div>
             </section>

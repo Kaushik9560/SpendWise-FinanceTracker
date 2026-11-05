@@ -1,7 +1,11 @@
 import { useState } from "react"
 import { Icon } from "../icons"
 
-export default function CreateAccountModal({ busy, onClose, onSubmit }) {
+export default function CreateAccountModal(props) {
+    const busy = props.busy
+    const onClose = props.onClose
+    const onSubmit = props.onSubmit
+
     // Controlled input: React state is the single source of truth for the text box.
     const [name, setName] = useState("")
     const trimmedName = name.trim()
@@ -20,6 +24,10 @@ export default function CreateAccountModal({ busy, onClose, onSubmit }) {
         if (event.target === event.currentTarget && !busy) {
             onClose()
         }
+    }
+
+    function handleNameChange(event) {
+        setName(event.target.value)
     }
 
     // role="dialog" and aria-modal help screen readers understand the overlay.
@@ -42,11 +50,11 @@ export default function CreateAccountModal({ busy, onClose, onSubmit }) {
                         <label className="form-label" htmlFor="account-name">Account name</label>
                         <input
                             id="account-name"
-                            className="form-input"
+                            className="form-control form-input"
                             type="text"
                             placeholder="e.g. SBI Salary or Cash Wallet"
                             value={name}
-                            onChange={(event) => setName(event.target.value)}
+                            onChange={handleNameChange}
                             maxLength={50}
                             disabled={busy}
                             autoFocus
@@ -60,7 +68,10 @@ export default function CreateAccountModal({ busy, onClose, onSubmit }) {
                             Cancel
                         </button>
                         <button className="btn btn-primary" type="submit" disabled={busy || !trimmedName}>
-                            {busy ? <><span className="spinner" /> Creating...</> : <>{Icon.plus} Create account</>}
+                            {busy && <span className="spinner" />}
+                            {busy && "Creating..."}
+                            {!busy && Icon.plus}
+                            {!busy && "Create account"}
                         </button>
                     </div>
                 </form>

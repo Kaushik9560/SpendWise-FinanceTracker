@@ -1,4 +1,3 @@
-import { ledgerApi } from "../api"
 import heroImage from "../assets/spendwise-hero.png"
 import BrandMark from "./BrandMark"
 
@@ -7,35 +6,56 @@ import BrandMark from "./BrandMark"
  * Keeping it outside JSX removes repeated conditional headings from the UI.
  */
 const AUTH_COPY = {
-    login: ["Welcome back", "Sign in to SpendWise", "Enter your details to continue to your dashboard."],
-    register: ["Get started", "Create your account", "We will verify your email before activating your workspace."],
-    forgot: ["Account recovery", "Forgot your password?", "Enter your verified email and we will send a secure reset link."],
-    reset: ["Account recovery", "Choose a new password", "Use at least 8 characters for your new password."],
-    "verify-pending": ["One last step", "Check your email", "Open the verification link we sent to activate your account."]
+    login: {
+        eyebrow: "Welcome back",
+        title: "Sign in to SpendWise",
+        subtitle: "Enter your details to continue to your dashboard."
+    },
+    register: {
+        eyebrow: "Get started",
+        title: "Create your account",
+        subtitle: "We will verify your email before activating your workspace."
+    },
+    forgot: {
+        eyebrow: "Account recovery",
+        title: "Forgot your password?",
+        subtitle: "Enter your verified email and we will send a secure reset link."
+    },
+    reset: {
+        eyebrow: "Account recovery",
+        title: "Choose a new password",
+        subtitle: "Use at least 8 characters for your new password."
+    },
+    "verify-pending": {
+        eyebrow: "One last step",
+        title: "Check your email",
+        subtitle: "Open the verification link we sent to activate your account."
+    }
 }
 
-function healthLabel(health) {
-    if (health === "online") return "Service available"
-    if (health === "offline") return "Service unavailable"
-    return "Checking service"
+function getSubmitButtonText(mode, isBusy) {
+    if (isBusy) return "Please wait..."
+    if (mode === "register") return "Create account"
+    if (mode === "forgot") return "Send reset link"
+    if (mode === "reset") return "Reset password"
+    return "Sign in"
 }
 
 /*
  * AuthScreen only displays forms. App.jsx owns authentication logic and passes
  * event functions as props. This is separation of UI and business logic.
  */
-export default function AuthScreen({
-    mode,
-    setMode,
-    authForm,
-    setAuthForm,
-    busyAction,
-    onSubmit,
-    health,
-    onHealthCheck,
-    authNotice,
-    onResendVerification
-}) {
+export default function AuthScreen(props) {
+    // App owns authentication state. This screen receives it through props.
+    const mode = props.mode
+    const setMode = props.setMode
+    const authForm = props.authForm
+    const setAuthForm = props.setAuthForm
+    const busyAction = props.busyAction
+    const onSubmit = props.onSubmit
+    const authNotice = props.authNotice
+    const onResendVerification = props.onResendVerification
+
     // These booleans make conditional JSX read like English.
     const isLogin = mode === "login"
     const isRegister = mode === "register"
@@ -43,19 +63,79 @@ export default function AuthScreen({
     const isReset = mode === "reset"
     const isPending = mode === "verify-pending"
 
-    const [eyebrow, title, defaultSubtitle] = AUTH_COPY[mode] || AUTH_COPY.login
-    const subtitle = isPending && authNotice?.message ? authNotice.message : defaultSubtitle
+    let pageText = AUTH_COPY[mode]
+    if (!pageText) {
+        pageText = AUTH_COPY.login
+    }
 
-    // Update one property without removing the other form properties.
-    function updateField(field, value) {
-        setAuthForm((current) => ({ ...current, [field]: value }))
+    const eyebrow = pageText.eyebrow
+    const title = pageText.title
+    const defaultSubtitle = pageText.subtitle
+
+    let subtitle = defaultSubtitle
+    if (isPending && authNotice && authNotice.message) {
+        subtitle = authNotice.message
+    }
+
+    let previewUrl = ""
+    if (authNotice && authNotice.previewUrl) {
+        previewUrl = authNotice.previewUrl
+    }
+
+    let switchMessage = "New to SpendWise?"
+    let switchButtonText = "Create account"
+    let switchToMode = "register"
+
+    if (isRegister) {
+        switchMessage = "Already have an account?"
+        switchButtonText = "Sign in"
+        switchToMode = "login"
+    }
+
+    const formIsBusy = busyAction === mode
+    const isResending = busyAction === "resend"
+    const submitButtonText = getSubmitButtonText(mode, formIsBusy)
+
+    let passwordLabel = "Password"
+    let passwordAutoComplete = "new-password"
+    let passwordMinimumLength = 8
+
+    if (isLogin) {
+        passwordAutoComplete = "current-password"
+        passwordMinimumLength = 1
+    }
+
+    if (isReset) {
+        passwordLabel = "New password"
+    }
+
+    // The spread keeps old fields. The last property changes only one field.
+    function handleNameChange(event) {
+        setAuthForm({ ...authForm, name: event.target.value })
+    }
+
+    function handleEmailChange(event) {
+        setAuthForm({ ...authForm, email: event.target.value })
+    }
+
+    function handlePasswordChange(event) {
+        setAuthForm({ ...authForm, password: event.target.value })
+    }
+
+    function handleConfirmPasswordChange(event) {
+        setAuthForm({ ...authForm, confirmPassword: event.target.value })
     }
 
     // Clear sensitive fields whenever the user changes authentication screen.
     function changeMode(nextMode) {
+        let email = ""
+        if (nextMode === "forgot") {
+            email = authForm.email
+        }
+
         setAuthForm({
             name: "",
-            email: nextMode === "forgot" ? authForm.email : "",
+            email,
             password: "",
             confirmPassword: ""
         })
@@ -113,9 +193,9 @@ export default function AuthScreen({
 
                     {(isLogin || isRegister) && (
                         <div className="auth-mode-row">
-                            <span>{isRegister ? "Already have an account?" : "New to SpendWise?"}</span>
-                            <button type="button" onClick={() => changeMode(isRegister ? "login" : "register")}>
-                                {isRegister ? "Sign in" : "Create account"}
+                            <span>{switchMessage}</span>
+                            <button type="button" onClick={() => changeMode(switchToMode)}>
+                                {switchButtonText}
                             </button>
                         </div>
                     )}
@@ -126,45 +206,49 @@ export default function AuthScreen({
                         <p className="auth-sub">{subtitle}</p>
                     </header>
 
-                    {isPending ? (
-                        /* Verification has no normal form, only resend and back actions. */
+                    {/* Verification has no normal form, only resend and back actions. */}
+                    {isPending && (
                         <div className="auth-form">
                             <div className="auth-info-box">
                                 Verification links expire after 24 hours. Check your spam folder too.
                             </div>
 
-                            {authNotice?.previewUrl && (
-                                <a className="btn btn-secondary btn-full" href={authNotice.previewUrl}>
+                            {previewUrl && (
+                                <a className="btn btn-secondary w-100" href={previewUrl}>
                                     Open local verification link
                                 </a>
                             )}
 
                             <button
-                                className="btn btn-primary btn-full btn-lg auth-submit"
+                                className="btn btn-primary w-100 btn-lg auth-submit"
                                 type="button"
-                                disabled={busyAction === "resend"}
+                                disabled={isResending}
                                 onClick={() => void onResendVerification()}
                             >
-                                {busyAction === "resend" ? <><span className="spinner" /> Sending...</> : "Resend verification email"}
+                                {isResending && <span className="spinner" />}
+                                {isResending && "Sending..."}
+                                {!isResending && "Resend verification email"}
                             </button>
 
                             <button className="auth-link-button" type="button" onClick={() => changeMode("login")}>
                                 Back to sign in
                             </button>
                         </div>
-                    ) : (
-                        /* Controlled inputs read from authForm and update it on every keystroke. */
+                    )}
+
+                    {/* Controlled inputs read from authForm and update it on every keystroke. */}
+                    {!isPending && (
                         <form onSubmit={onSubmit} className="auth-form">
                             {isRegister && (
                                 <div className="form-group">
                                     <label className="form-label" htmlFor="reg-name">Full name</label>
                                     <input
                                         id="reg-name"
-                                        className="form-input"
+                                        className="form-control form-input"
                                         type="text"
                                         placeholder="Your name"
                                         value={authForm.name}
-                                        onChange={(event) => updateField("name", event.target.value)}
+                                        onChange={handleNameChange}
                                         autoComplete="name"
                                         maxLength={100}
                                         required
@@ -177,11 +261,11 @@ export default function AuthScreen({
                                     <label className="form-label" htmlFor="auth-email">Email address</label>
                                     <input
                                         id="auth-email"
-                                        className="form-input"
+                                        className="form-control form-input"
                                         type="email"
                                         placeholder="name@example.com"
                                         value={authForm.email}
-                                        onChange={(event) => updateField("email", event.target.value)}
+                                        onChange={handleEmailChange}
                                         autoComplete="email"
                                         maxLength={254}
                                         required
@@ -193,19 +277,19 @@ export default function AuthScreen({
                                 <div className="form-group auth-password-group">
                                     <div className="auth-label-row">
                                         <label className="form-label" htmlFor="auth-password">
-                                            {isReset ? "New password" : "Password"}
+                                            {passwordLabel}
                                         </label>
                                         {(isRegister || isReset) && <span>8 characters minimum</span>}
                                     </div>
                                     <input
                                         id="auth-password"
-                                        className="form-input"
+                                        className="form-control form-input"
                                         type="password"
                                         placeholder="Enter your password"
                                         value={authForm.password}
-                                        onChange={(event) => updateField("password", event.target.value)}
-                                        autoComplete={isLogin ? "current-password" : "new-password"}
-                                        minLength={isLogin ? 1 : 8}
+                                        onChange={handlePasswordChange}
+                                        autoComplete={passwordAutoComplete}
+                                        minLength={passwordMinimumLength}
                                         maxLength={128}
                                         required
                                     />
@@ -217,10 +301,10 @@ export default function AuthScreen({
                                     <label className="form-label" htmlFor="confirm-password">Confirm new password</label>
                                     <input
                                         id="confirm-password"
-                                        className="form-input"
+                                        className="form-control form-input"
                                         type="password"
                                         value={authForm.confirmPassword}
-                                        onChange={(event) => updateField("confirmPassword", event.target.value)}
+                                        onChange={handleConfirmPasswordChange}
                                         autoComplete="new-password"
                                         minLength={8}
                                         maxLength={128}
@@ -237,16 +321,12 @@ export default function AuthScreen({
 
                             <button
                                 id="auth-submit-btn"
-                                className="btn btn-primary btn-full btn-lg auth-submit"
+                                className="btn btn-primary w-100 btn-lg auth-submit"
                                 type="submit"
                                 disabled={Boolean(busyAction)}
                             >
-                                {busyAction === mode
-                                    ? <><span className="spinner" /> Please wait...</>
-                                    : isRegister ? "Create account"
-                                        : isForgot ? "Send reset link"
-                                            : isReset ? "Reset password"
-                                                : "Sign in"}
+                                {formIsBusy && <span className="spinner" />}
+                                {submitButtonText}
                             </button>
 
                             {(isForgot || isReset) && (
@@ -257,21 +337,6 @@ export default function AuthScreen({
                         </form>
                     )}
 
-                    <p className="auth-privacy-note">
-                        Your password is hashed and your session uses a secure, HttpOnly cookie.
-                    </p>
-
-                    <button
-                        className="api-status-row"
-                        onClick={() => void onHealthCheck()}
-                        id="health-check-btn"
-                        type="button"
-                        aria-label="Check service status"
-                    >
-                        <span className={`status-dot dot-${health}`} />
-                        <span aria-live="polite">{healthLabel(health)}</span>
-                        <span className="api-url">{ledgerApi.baseUrl}</span>
-                    </button>
                 </div>
             </main>
         </div>

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react"
 import { Icon } from "../icons"
 
-export default function DeleteUserModal({ busy, onClose, onConfirm }) {
+export default function DeleteUserModal(props) {
+    const busy = props.busy
+    const onClose = props.onClose
+    const onConfirm = props.onConfirm
+
     // Both fields are required because deleting a complete user is irreversible.
     const [password, setPassword] = useState("")
     const [confirmation, setConfirmation] = useState("")
@@ -16,8 +20,32 @@ export default function DeleteUserModal({ busy, onClose, onConfirm }) {
         return () => window.removeEventListener("keydown", closeOnEscape)
     }, [busy, onClose])
 
+    function handleOverlayMouseDown(event) {
+        const clickedOutsideModal = event.target === event.currentTarget
+
+        if (clickedOutsideModal && !busy) {
+            onClose()
+        }
+    }
+
+    function handleSubmit(event) {
+        event.preventDefault()
+
+        if (ready) {
+            onConfirm({ password, confirmation })
+        }
+    }
+
+    function handlePasswordChange(event) {
+        setPassword(event.target.value)
+    }
+
+    function handleConfirmationChange(event) {
+        setConfirmation(event.target.value)
+    }
+
     return (
-        <div className="modal-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
+        <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayMouseDown}>
             <section className="modal delete-user-modal" role="dialog" aria-modal="true" aria-labelledby="delete-user-title">
                 <div className="delete-modal-header">
                     <div className="delete-modal-icon">{Icon.trash}</div>
@@ -38,26 +66,42 @@ export default function DeleteUserModal({ busy, onClose, onConfirm }) {
                     </ul>
                 </div>
 
-                <form onSubmit={(event) => {
-                    event.preventDefault()
-                    if (ready) onConfirm({ password, confirmation })
-                }}>
+                <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label className="form-label" htmlFor="delete-password">Current password</label>
-                        <input id="delete-password" className="form-input" type="password" value={password}
-                            onChange={(event) => setPassword(event.target.value)} autoComplete="current-password"
-                            placeholder="Enter your password" autoFocus disabled={busy} required />
+                        <input
+                            id="delete-password"
+                            className="form-control form-input"
+                            type="password"
+                            value={password}
+                            onChange={handlePasswordChange}
+                            autoComplete="current-password"
+                            placeholder="Enter your password"
+                            autoFocus
+                            disabled={busy}
+                            required
+                        />
                     </div>
                     <div className="form-group">
                         <label className="form-label" htmlFor="delete-confirmation">Type <code>DELETE</code> to confirm</label>
-                        <input id="delete-confirmation" className="form-input" value={confirmation}
-                            onChange={(event) => setConfirmation(event.target.value)} autoComplete="off"
-                            placeholder="DELETE" disabled={busy} required />
+                        <input
+                            id="delete-confirmation"
+                            className="form-control form-input"
+                            value={confirmation}
+                            onChange={handleConfirmationChange}
+                            autoComplete="off"
+                            placeholder="DELETE"
+                            disabled={busy}
+                            required
+                        />
                     </div>
                     <div className="modal-actions">
                         <button className="btn btn-secondary" type="button" onClick={onClose} disabled={busy}>Keep my account</button>
                         <button className="btn btn-danger" type="submit" disabled={!ready || busy}>
-                            {busy ? <><span className="spinner" /> Deleting...</> : <>{Icon.trash} Delete account</>}
+                            {busy && <span className="spinner" />}
+                            {busy && "Deleting..."}
+                            {!busy && Icon.trash}
+                            {!busy && "Delete account"}
                         </button>
                     </div>
                 </form>

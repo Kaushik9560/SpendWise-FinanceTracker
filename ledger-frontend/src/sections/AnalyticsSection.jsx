@@ -1,24 +1,39 @@
-import { CATEGORY_META } from "../constants"
+import { CATEGORY_DETAILS } from "../categories"
 import { formatCurrency } from "../lib/formatters"
 import { Icon } from "../icons"
 
-export default function AnalyticsSection({
-    summary,
-    monthlyData,
-    maxMonthlyVal,
-    topExpenseCategories,
-    totalExpense
-}) {
-    // Give the UI zeroes until the asynchronous summary request has finished.
-    const totalIncome = summary?.summary.totalIncome || 0
-    const totalExpenseValue = summary?.summary.totalExpense || 0
-    const netBalance = summary?.summary.netBalance || 0
-    const incomeCount = summary?.summary.incomeCount || 0
-    const expenseCount = summary?.summary.expenseCount || 0
-    // Division needs an income check; otherwise the result could be Infinity/NaN.
-    const savingsRate = summary && summary.summary.totalIncome > 0
-        ? `${Math.round((summary.summary.netBalance / summary.summary.totalIncome) * 100)}% savings rate`
-        : "No income recorded"
+export default function AnalyticsSection(props) {
+    const summary = props.summary
+    const monthlyData = props.monthlyData
+    const maxMonthlyVal = props.maxMonthlyVal
+    const topExpenseCategories = props.topExpenseCategories
+    const totalExpense = props.totalExpense
+
+    // Start with zero because the API data may still be loading.
+    let totalIncome = 0
+    let totalExpenseValue = 0
+    let netBalance = 0
+    let incomeCount = 0
+    let expenseCount = 0
+
+    if (summary && summary.summary) {
+        totalIncome = summary.summary.totalIncome
+        totalExpenseValue = summary.summary.totalExpense
+        netBalance = summary.summary.netBalance
+        incomeCount = summary.summary.incomeCount
+        expenseCount = summary.summary.expenseCount
+    }
+
+    let savingsRate = "No income recorded"
+    if (totalIncome > 0) {
+        const savingsPercentage = Math.round((netBalance / totalIncome) * 100)
+        savingsRate = `${savingsPercentage}% savings rate`
+    }
+
+    let netCardClass = "analytics-card net-card positive"
+    if (netBalance < 0) {
+        netCardClass = "analytics-card net-card negative"
+    }
 
     return (
         <div className="page-enter">
@@ -35,7 +50,7 @@ export default function AnalyticsSection({
                     <div className="ac-val">{formatCurrency(totalExpenseValue)}</div>
                     <div className="ac-sub">{expenseCount} transactions</div>
                 </div>
-                <div className={`analytics-card net-card ${netBalance >= 0 ? "positive" : "negative"}`}>
+                <div className={netCardClass}>
                     <div className="ac-icon">{Icon.wallet}</div>
                     <div className="ac-label">Net savings</div>
                     <div className="ac-val">{formatCurrency(netBalance)}</div>
@@ -49,13 +64,15 @@ export default function AnalyticsSection({
                         <span className="card-title">Monthly trend</span>
                     </div>
                     <div className="card-body">
-                        {monthlyData.length === 0 ? (
+                        {monthlyData.length === 0 && (
                             <div className="empty-state">
                                 <div className="empty-icon">{Icon.analytics}</div>
                                 <div className="empty-title">No data yet</div>
                                 <div className="empty-sub">Add transactions to see your monthly trend.</div>
                             </div>
-                        ) : (
+                        )}
+
+                        {monthlyData.length > 0 && (
                             <div className="bar-chart">
                                 {monthlyData.map((month) => (
                                     <div key={`${month.label}-${month.year}`} className="bar-col">
@@ -89,26 +106,33 @@ export default function AnalyticsSection({
                         <span className="card-title">Spending by category</span>
                     </div>
                     <div className="card-body">
-                        {topExpenseCategories.length === 0 ? (
+                        {topExpenseCategories.length === 0 && (
                             <div className="empty-state">
                                 <div className="empty-icon">{Icon.expenses}</div>
                                 <div className="empty-title">No spending data</div>
                                 <div className="empty-sub">Add expenses to see category breakdown.</div>
                             </div>
-                        ) : (
+                        )}
+
+                        {topExpenseCategories.length > 0 && (
                             <div className="cat-breakdown">
-                                {topExpenseCategories.map(({ cat, total }) => {
-                                    const meta = CATEGORY_META[cat] || { icon: "OT", color: "var(--text-2)" }
+                                {topExpenseCategories.map((categoryItem) => {
+                                    const category = categoryItem.cat
+                                    const total = categoryItem.total
+                                    const meta = CATEGORY_DETAILS[category] || { icon: "OT", color: "var(--text-2)" }
                                     // Guard totalExpense to avoid division by zero.
-                                    const percent = totalExpense > 0 ? Math.round((total / totalExpense) * 100) : 0
+                                    let percent = 0
+                                    if (totalExpense > 0) {
+                                        percent = Math.round((total / totalExpense) * 100)
+                                    }
 
                                     return (
-                                        <div key={cat} className="cat-breakdown-row">
+                                        <div key={category} className="cat-breakdown-row">
                                             <div className="cbr-icon" style={{ background: `${meta.color}20`, color: meta.color }}>
                                                 {meta.icon}
                                             </div>
                                             <div className="cbr-info">
-                                                <div className="cbr-name">{cat}</div>
+                                                <div className="cbr-name">{category}</div>
                                                 <div className="cbr-bar-track">
                                                     <div className="cbr-bar-fill" style={{ width: `${percent}%`, background: meta.color }} />
                                                 </div>

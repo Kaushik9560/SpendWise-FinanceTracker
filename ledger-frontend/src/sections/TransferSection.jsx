@@ -1,16 +1,49 @@
 import { formatCurrency } from "../lib/formatters"
 import { Icon } from "../icons"
 
-export default function TransferSection({
-    accounts,
-    balances,
-    transfer,
-    setTransfer,
-    busyAction,
-    onSubmit,
-    onGoToAccounts
-}) {
+const TRANSFER_STEPS = [
+    { icon: "01", title: "Immediate", desc: "Balances update as soon as a transfer completes" },
+    { icon: "02", title: "Duplicate-safe", desc: "A unique request key prevents repeated transfers" },
+    { icon: "03", title: "All or nothing", desc: "A failed transfer leaves both accounts unchanged" },
+    { icon: "04", title: "Ledger-backed", desc: "Every debit has a matching credit record" }
+]
+
+export default function TransferSection(props) {
+    const accounts = props.accounts
+    const balances = props.balances
+    const transfer = props.transfer
+    const setTransfer = props.setTransfer
+    const busyAction = props.busyAction
+    const onSubmit = props.onSubmit
+    const onGoToAccounts = props.onGoToAccounts
+
     // This component owns no state; values and setTransfer come from App.
+    const canTransfer = accounts.length >= 2
+    const transferIsBusy = busyAction === "transfer"
+    const destinationAccounts = accounts.filter((account) => account._id !== transfer.fromAccount)
+
+    function handleFromAccountChange(event) {
+        setTransfer({ ...transfer, fromAccount: event.target.value })
+    }
+
+    function handleToAccountChange(event) {
+        setTransfer({ ...transfer, toAccount: event.target.value })
+    }
+
+    function handleAmountChange(event) {
+        setTransfer({ ...transfer, amount: event.target.value })
+    }
+
+    function getAccountName(account) {
+        if (account.name) return account.name
+        return `Account ...${account._id.slice(-8)}`
+    }
+
+    function getAccountBalance(accountId) {
+        if (balances[accountId] === undefined) return "?"
+        return formatCurrency(balances[accountId])
+    }
+
     return (
         <div className="page-enter">
             <div className="transfer-layout">
@@ -19,7 +52,7 @@ export default function TransferSection({
                         <span className="card-title">Transfer funds</span>
                     </div>
                     <div className="card-body">
-                        {accounts.length < 2 ? (
+                        {!canTransfer && (
                             <div className="empty-state">
                                 <div className="empty-icon">{Icon.transfer}</div>
                                 <div className="empty-title">Need at least 2 accounts</div>
@@ -28,7 +61,9 @@ export default function TransferSection({
                                     Go to Accounts →
                                 </button>
                             </div>
-                        ) : (
+                        )}
+
+                        {canTransfer && (
                             <form onSubmit={onSubmit} className="transfer-form">
                                 <div className="form-group">
                                     <label className="form-label" htmlFor="from-account">From account</label>
@@ -37,13 +72,13 @@ export default function TransferSection({
                                         id="from-account"
                                         className="form-input form-select"
                                         value={transfer.fromAccount}
-                                        onChange={(event) => setTransfer((currentTransfer) => ({ ...currentTransfer, fromAccount: event.target.value }))}
+                                        onChange={handleFromAccountChange}
                                         required
                                     >
                                         <option value="">Select source account...</option>
                                         {accounts.map((account) => (
                                             <option key={account._id} value={account._id}>
-                                                {account.name || `Account ...${account._id.slice(-8)}`} — {balances[account._id] !== undefined ? formatCurrency(balances[account._id]) : "?"}
+                                                {getAccountName(account)} — {getAccountBalance(account._id)}
                                             </option>
                                         ))}
                                     </select>
@@ -54,14 +89,14 @@ export default function TransferSection({
                                         id="to-account"
                                         className="form-input form-select"
                                         value={transfer.toAccount}
-                                        onChange={(event) => setTransfer((currentTransfer) => ({ ...currentTransfer, toAccount: event.target.value }))}
+                                        onChange={handleToAccountChange}
                                         required
                                     >
                                         <option value="">Select destination account...</option>
                                         {/* Source is filtered out so both accounts cannot be the same. */}
-                                        {accounts.filter((account) => account._id !== transfer.fromAccount).map((account) => (
+                                        {destinationAccounts.map((account) => (
                                             <option key={account._id} value={account._id}>
-                                                {account.name || `Account ...${account._id.slice(-8)}`}
+                                                {getAccountName(account)}
                                             </option>
                                         ))}
                                     </select>
@@ -72,27 +107,28 @@ export default function TransferSection({
                                         <span className="amount-prefix">₹</span>
                                         <input
                                             id="transfer-amount"
-                                            className="form-input amount-input"
+                                            className="form-control form-input amount-input"
                                             type="number"
                                             placeholder="0.00"
                                             min="0.01"
                                             step="0.01"
                                             value={transfer.amount}
-                                            onChange={(event) => setTransfer((currentTransfer) => ({ ...currentTransfer, amount: event.target.value }))}
+                                            onChange={handleAmountChange}
                                             required
                                         />
                                     </div>
                                 </div>
                                 <button
                                     id="transfer-submit-btn"
-                                    className="btn btn-primary btn-full btn-lg"
+                                    className="btn btn-primary w-100 btn-lg"
                                     type="submit"
-                                    disabled={busyAction === "transfer"}
+                                    disabled={transferIsBusy}
                                     style={{ marginTop: "0.5rem" }}
                                 >
-                                    {busyAction === "transfer"
-                                        ? <><span className="spinner" /> Processing...</>
-                                        : <>{Icon.transfer} Transfer now</>}
+                                    {transferIsBusy && <span className="spinner" />}
+                                    {!transferIsBusy && Icon.transfer}
+                                    {transferIsBusy && "Processing..."}
+                                    {!transferIsBusy && "Transfer now"}
                                 </button>
                             </form>
                         )}
@@ -104,12 +140,7 @@ export default function TransferSection({
                         <div className="card-header"><span className="card-title">How transfers work</span></div>
                         <div className="card-body">
                             <div className="info-list">
-                                {[
-                                    { icon: "01", title: "Immediate", desc: "Balances update as soon as a transfer completes" },
-                                    { icon: "02", title: "Duplicate-safe", desc: "A unique request key prevents repeated transfers" },
-                                    { icon: "03", title: "All or nothing", desc: "A failed transfer leaves both accounts unchanged" },
-                                    { icon: "04", title: "Ledger-backed", desc: "Every debit has a matching credit record" }
-                                ].map((item) => (
+                                {TRANSFER_STEPS.map((item) => (
                                     <div key={item.title} className="info-item">
                                         <span className="info-icon">{item.icon}</span>
                                         <div>

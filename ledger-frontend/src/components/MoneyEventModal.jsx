@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { CATEGORY_META } from "../constants"
+import { CATEGORY_DETAILS } from "../categories"
 import { Icon } from "../icons"
 
 // A function creates fresh default values each time the modal component mounts.
@@ -22,11 +22,17 @@ function categoryMatchesType(category, type) {
     return category !== "Salary & Income"
 }
 
-export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
+export default function MoneyEventModal(props) {
+    const accounts = props.accounts
+    const onClose = props.onClose
+    const onSubmit = props.onSubmit
+    const busy = props.busy
+
     // useState stores form values; useRef points to the real overlay DOM element.
     const [form, setForm] = useState(emptyMoneyEventForm)
     const overlayRef = useRef(null)
-    const categories = Object.keys(CATEGORY_META)
+    const categories = Object.keys(CATEGORY_DETAILS)
+    const today = new Date().toISOString().split("T")[0]
 
     function handleOverlayClick(event) {
         // Close only when the dark background is clicked, not the white/blue modal.
@@ -35,9 +41,59 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
         }
     }
 
-    function setField(field, value) {
-        // Computed property [field] lets one helper update amount, date, category, etc.
-        setForm((currentForm) => ({ ...currentForm, [field]: value }))
+    // Each input has its own handler, so it is clear which property changes.
+    function handleAmountChange(event) {
+        setForm({ ...form, amount: event.target.value })
+    }
+
+    function handleAccountChange(event) {
+        setForm({ ...form, accountId: event.target.value })
+    }
+
+    function handleDescriptionChange(event) {
+        setForm({ ...form, description: event.target.value })
+    }
+
+    function handleDateChange(event) {
+        setForm({ ...form, date: event.target.value })
+    }
+
+    function selectCategory(category) {
+        setForm({ ...form, category })
+    }
+
+    function selectExpense() {
+        let selectedCategory = form.category
+
+        if (!form.category || form.category === "Salary & Income") {
+            selectedCategory = ""
+        }
+
+        setForm({ ...form, type: "expense", category: selectedCategory })
+    }
+
+    function selectIncome() {
+        setForm({ ...form, type: "income", category: "Salary & Income" })
+    }
+
+    function handleSubmit(event) {
+        event.preventDefault()
+        void onSubmit(form)
+    }
+
+    let submitButtonClass = "btn-expense"
+    let submitButtonIcon = Icon.expense
+    let submitButtonText = "Add expense"
+    let expenseTypeButtonClass = "type-btn type-expense"
+    let incomeTypeButtonClass = "type-btn type-income"
+
+    if (form.type === "income") {
+        submitButtonClass = "btn-income"
+        submitButtonIcon = Icon.income
+        submitButtonText = "Record income"
+        incomeTypeButtonClass += " active"
+    } else {
+        expenseTypeButtonClass += " active"
     }
 
     return (
@@ -54,50 +110,36 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                 <div className="type-toggle">
                     <button
                         id="type-expense-btn"
-                        className={`type-btn type-expense ${form.type === "expense" ? "active" : ""}`}
-                        onClick={() => {
-                            setField("type", "expense")
-                            if (!form.category || form.category === "Salary & Income") {
-                                setField("category", "")
-                            }
-                        }}
+                        className={expenseTypeButtonClass}
+                        onClick={selectExpense}
                         type="button"
                     >
                         <span className="type-icon">{Icon.expense}</span> Expense
                     </button>
                     <button
                         id="type-income-btn"
-                        className={`type-btn type-income ${form.type === "income" ? "active" : ""}`}
-                        onClick={() => {
-                            setField("type", "income")
-                            setField("category", "Salary & Income")
-                        }}
+                        className={incomeTypeButtonClass}
+                        onClick={selectIncome}
                         type="button"
                     >
                         <span className="type-icon">{Icon.income}</span> Income
                     </button>
                 </div>
 
-                <form
-                    className="modal-form"
-                    onSubmit={(event) => {
-                        event.preventDefault()
-                        void onSubmit(form)
-                    }}
-                >
+                <form className="modal-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label className="form-label" htmlFor="exp-amount">Amount (₹)</label>
                         <div className="amount-input-wrap">
                             <span className="amount-prefix">₹</span>
                             <input
                                 id="exp-amount"
-                                className="form-input amount-input"
+                                className="form-control form-input amount-input"
                                 type="number"
                                 placeholder="0.00"
                                 min="0.01"
                                 step="0.01"
                                 value={form.amount}
-                                onChange={(event) => setField("amount", event.target.value)}
+                                onChange={handleAmountChange}
                                 required
                                 autoFocus
                             />
@@ -110,7 +152,7 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                             id="exp-account"
                             className="form-input form-select"
                             value={form.accountId}
-                            onChange={(event) => setField("accountId", event.target.value)}
+                            onChange={handleAccountChange}
                             required
                         >
                             <option value="">Select account...</option>
@@ -126,11 +168,16 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                         <label className="form-label">Category</label>
                         <div className="category-grid">
                             {categories.map((category) => {
-                                const meta = CATEGORY_META[category]
+                                const meta = CATEGORY_DETAILS[category]
                                 const showCategory = categoryMatchesType(category, form.type)
 
                                 if (!showCategory) {
                                     return null
+                                }
+
+                                let categoryClass = "cat-chip"
+                                if (form.category === category) {
+                                    categoryClass += " selected"
                                 }
 
                                 return (
@@ -138,9 +185,9 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                                         key={category}
                                         type="button"
                                         id={`cat-${category.replace(/\s+/g, "-").toLowerCase()}`}
-                                        className={`cat-chip ${form.category === category ? "selected" : ""}`}
+                                        className={categoryClass}
                                         style={{ "--cat-color": meta.color }}
-                                        onClick={() => setField("category", category)}
+                                        onClick={() => selectCategory(category)}
                                     >
                                         <span>{meta.icon}</span>
                                         <span>{category}</span>
@@ -156,11 +203,11 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                         </label>
                         <input
                             id="exp-desc"
-                            className="form-input"
+                            className="form-control form-input"
                             type="text"
                             placeholder="e.g. Lunch at Cafe Coffee Day"
                             value={form.description}
-                            onChange={(event) => setField("description", event.target.value)}
+                            onChange={handleDescriptionChange}
                             maxLength={200}
                         />
                     </div>
@@ -169,26 +216,25 @@ export default function MoneyEventModal({ accounts, onClose, onSubmit, busy }) {
                         <label className="form-label" htmlFor="exp-date">Date</label>
                         <input
                             id="exp-date"
-                            className="form-input"
+                            className="form-control form-input"
                             type="date"
                             value={form.date}
-                            onChange={(event) => setField("date", event.target.value)}
-                            max={new Date().toISOString().split("T")[0]}
+                            onChange={handleDateChange}
+                            max={today}
                             required
                         />
                     </div>
 
                     <button
                         id="modal-submit-btn"
-                        className={`btn btn-full btn-lg ${form.type === "income" ? "btn-income" : "btn-expense"}`}
+                        className={`btn w-100 btn-lg ${submitButtonClass}`}
                         type="submit"
                         disabled={busy || !form.amount || !form.accountId || !form.category}
                     >
-                        {busy
-                            ? <><span className="spinner" /> Saving...</>
-                            : form.type === "income"
-                                ? <>{Icon.income} Record income</>
-                                : <>{Icon.expense} Add expense</>}
+                        {busy && <span className="spinner" />}
+                        {busy && "Saving..."}
+                        {!busy && submitButtonIcon}
+                        {!busy && submitButtonText}
                     </button>
                 </form>
             </div>

@@ -1,24 +1,50 @@
-import { CATEGORY_META } from "../constants"
+import { CATEGORY_DETAILS } from "../categories"
 import { formatCurrency, formatRelativeDate } from "../lib/formatters"
 import { Icon } from "../icons"
 
-export default function DashboardSection({
-    summary,
-    accounts,
-    balances,
-    totalBalance,
-    expenses,
-    topExpenseCategories,
-    maxCatTotal,
-    onShowModal,
-    onSetActiveTab
-}) {
-    // Optional chaining (?.) avoids an error while summary is still loading.
-    const netBalance = summary?.summary.netBalance || 0
-    const totalIncome = summary?.summary.totalIncome || 0
-    const totalExpense = summary?.summary.totalExpense || 0
-    const incomeCount = summary?.summary.incomeCount || 0
-    const expenseCount = summary?.summary.expenseCount || 0
+export default function DashboardSection(props) {
+    const summary = props.summary
+    const accounts = props.accounts
+    const balances = props.balances
+    const totalBalance = props.totalBalance
+    const expenses = props.expenses
+    const topExpenseCategories = props.topExpenseCategories
+    const maxCatTotal = props.maxCatTotal
+    const onShowModal = props.onShowModal
+    const onSetActiveTab = props.onSetActiveTab
+
+    // Start with zero because the summary API request may still be loading.
+    let netBalance = 0
+    let totalIncome = 0
+    let totalExpense = 0
+    let incomeCount = 0
+    let expenseCount = 0
+
+    if (summary && summary.summary) {
+        netBalance = summary.summary.netBalance
+        totalIncome = summary.summary.totalIncome
+        totalExpense = summary.summary.totalExpense
+        incomeCount = summary.summary.incomeCount
+        expenseCount = summary.summary.expenseCount
+    }
+
+    let balanceClass = "balance-amount positive"
+    if (netBalance < 0) {
+        balanceClass = "balance-amount negative"
+    }
+
+    let accountWord = "accounts"
+    if (accounts.length === 1) {
+        accountWord = "account"
+    }
+
+    function showExpensesPage() {
+        onSetActiveTab("expenses")
+    }
+
+    function showAnalyticsPage() {
+        onSetActiveTab("analytics")
+    }
 
     // This component is presentational: all data and click actions arrive as props.
     return (
@@ -26,11 +52,11 @@ export default function DashboardSection({
             <div className="balance-hero">
                 <div className="balance-hero-inner">
                     <div className="balance-label">Net balance</div>
-                    <div className={`balance-amount ${netBalance >= 0 ? "positive" : "negative"}`}>
+                    <div className={balanceClass}>
                         {formatCurrency(netBalance)}
                     </div>
                     <div className="balance-sub">
-                        Across {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+                        Across {accounts.length} {accountWord}
                         {Object.keys(balances).length > 0 && ` · Ledger: ${formatCurrency(totalBalance)}`}
                     </div>
                 </div>
@@ -92,11 +118,10 @@ export default function DashboardSection({
                 <div className="card">
                     <div className="card-header">
                         <span className="card-title">Recent transactions</span>
-                        <button className="btn btn-ghost btn-sm" onClick={() => onSetActiveTab("expenses")}>View all →</button>
+                        <button className="btn btn-ghost btn-sm" onClick={showExpensesPage}>View all →</button>
                     </div>
                     <div className="card-body">
-                        {/* A ternary shows either an empty state or recent transactions. */}
-                        {expenses.length === 0 ? (
+                        {expenses.length === 0 && (
                             <div className="empty-state">
                                 <div className="empty-icon">{Icon.expenses}</div>
                                 <div className="empty-title">No transactions yet</div>
@@ -105,11 +130,15 @@ export default function DashboardSection({
                                     {Icon.plus} Add transaction
                                 </button>
                             </div>
-                        ) : (
+                        )}
+
+                        {expenses.length > 0 && (
                             <div className="tx-list">
                                 {/* slice limits this preview; the Expenses tab shows all rows. */}
                                 {expenses.slice(0, 6).map((expense) => {
-                                    const meta = CATEGORY_META[expense.category] || { icon: "OT", color: "var(--text-2)" }
+                                    const meta = CATEGORY_DETAILS[expense.category] || { icon: "OT", color: "var(--text-2)" }
+                                    let amountSign = "−"
+                                    if (expense.type === "income") amountSign = "+"
 
                                     return (
                                         <div key={expense._id} className="tx-item">
@@ -121,7 +150,7 @@ export default function DashboardSection({
                                                 <div className="tx-sub">{expense.category} · {formatRelativeDate(expense.date)}</div>
                                             </div>
                                             <div className={`tx-amount ${expense.type}`}>
-                                                {expense.type === "income" ? "+" : "−"}{formatCurrency(expense.amount)}
+                                                {amountSign}{formatCurrency(expense.amount)}
                                             </div>
                                         </div>
                                     )
@@ -134,27 +163,31 @@ export default function DashboardSection({
                 <div className="card">
                     <div className="card-header">
                         <span className="card-title">Top spending</span>
-                        <button className="btn btn-ghost btn-sm" onClick={() => onSetActiveTab("analytics")}>Analytics →</button>
+                        <button className="btn btn-ghost btn-sm" onClick={showAnalyticsPage}>Analytics →</button>
                     </div>
                     <div className="card-body">
-                        {topExpenseCategories.length === 0 ? (
+                        {topExpenseCategories.length === 0 && (
                             <div className="empty-state">
                                 <div className="empty-icon">{Icon.analytics}</div>
                                 <div className="empty-title">No spending data</div>
                                 <div className="empty-sub">Add expenses to see your spending breakdown.</div>
                             </div>
-                        ) : (
+                        )}
+
+                        {topExpenseCategories.length > 0 && (
                             <div className="cat-bars">
-                                {topExpenseCategories.map(({ cat, total }) => {
-                                    const meta = CATEGORY_META[cat] || { icon: "OT", color: "var(--text-2)" }
+                                {topExpenseCategories.map((categoryItem) => {
+                                    const category = categoryItem.cat
+                                    const total = categoryItem.total
+                                    const meta = CATEGORY_DETAILS[category] || { icon: "OT", color: "var(--text-2)" }
                                     // The largest category is 100%; others are proportional to it.
                                     const width = (total / maxCatTotal) * 100
 
                                     return (
-                                        <div key={cat} className="cat-bar-row">
+                                        <div key={category} className="cat-bar-row">
                                             <div className="cat-bar-label">
                                                 <span>{meta.icon}</span>
-                                                <span>{cat}</span>
+                                                <span>{category}</span>
                                             </div>
                                             <div className="cat-bar-track">
                                                 <div className="cat-bar-fill" style={{ width: `${width}%`, background: meta.color }} />

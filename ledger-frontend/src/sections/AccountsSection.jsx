@@ -1,15 +1,29 @@
 import { Icon } from "../icons"
 import { formatCurrency, formatDate } from "../lib/formatters"
 
-export default function AccountsSection({
-    accounts,
-    balances,
-    busyAction,
-    onRefreshAccounts,
-    onCreateAccount,
-    onDeleteAccount,
-    onDeleteUserAccount
-}) {
+export default function AccountsSection(props) {
+    const accounts = props.accounts
+    const balances = props.balances
+    const busyAction = props.busyAction
+    const onRefreshAccounts = props.onRefreshAccounts
+    const onCreateAccount = props.onCreateAccount
+    const onDeleteAccount = props.onDeleteAccount
+    const onDeleteUserAccount = props.onDeleteUserAccount
+
+    const isRefreshing = busyAction === "refreshAccounts"
+    const isCreatingAccount = busyAction === "createAccount"
+    const isDeletingUser = busyAction === "deleteUserAccount"
+
+    function getAccountName(account) {
+        if (account.name) return account.name
+        return `Account ...${account._id.slice(-8)}`
+    }
+
+    function getBalanceText(accountId) {
+        if (balances[accountId] === undefined) return "—"
+        return formatCurrency(balances[accountId])
+    }
+
     // Accounts and balances arrive separately because balance comes from ledger entries.
     return (
         <div className="page-enter">
@@ -18,21 +32,25 @@ export default function AccountsSection({
                     id="accounts-refresh-btn"
                     className="btn btn-secondary"
                     onClick={() => void onRefreshAccounts()}
-                    disabled={busyAction === "refreshAccounts"}
+                    disabled={isRefreshing}
                 >
-                    {busyAction === "refreshAccounts" ? <span className="spinner" /> : Icon.refresh} Refresh
+                    {isRefreshing && <span className="spinner" />}
+                    {!isRefreshing && Icon.refresh}
+                    Refresh
                 </button>
                 <button
                     id="accounts-create-btn"
                     className="btn btn-primary"
                     onClick={() => void onCreateAccount()}
-                    disabled={busyAction === "createAccount"}
+                    disabled={isCreatingAccount}
                 >
-                    {busyAction === "createAccount" ? <span className="spinner" /> : Icon.plus} New account
+                    {isCreatingAccount && <span className="spinner" />}
+                    {!isCreatingAccount && Icon.plus}
+                    New account
                 </button>
             </div>
 
-            {accounts.length === 0 ? (
+            {accounts.length === 0 && (
                 <div className="card">
                     <div className="empty-state" style={{ padding: "4rem" }}>
                         <div className="empty-icon">{Icon.accounts}</div>
@@ -43,7 +61,9 @@ export default function AccountsSection({
                         </button>
                     </div>
                 </div>
-            ) : (
+            )}
+
+            {accounts.length > 0 && (
                 <div className="accounts-grid">
                     {/* key lets React track each account card between renders. */}
                     {accounts.map((account, index) => (
@@ -69,10 +89,10 @@ export default function AccountsSection({
                                 </div>
                             </div>
                             <div className="acc-name">
-                                {account.name || `Account ...${account._id.slice(-8)}`}
+                                {getAccountName(account)}
                             </div>
                             <div className="acc-balance">
-                                {balances[account._id] !== undefined ? formatCurrency(balances[account._id]) : "—"}
+                                {getBalanceText(account._id)}
                             </div>
                             <div className="acc-label">Current balance</div>
                             <div className="acc-meta">
@@ -102,10 +122,12 @@ export default function AccountsSection({
                         <button
                             className="btn btn-danger"
                             type="button"
-                            disabled={busyAction === "deleteUserAccount"}
+                            disabled={isDeletingUser}
                             onClick={() => void onDeleteUserAccount()}
                         >
-                            {busyAction === "deleteUserAccount" ? <><span className="spinner" /> Deleting...</> : "Delete my account"}
+                            {isDeletingUser && <span className="spinner" />}
+                            {isDeletingUser && "Deleting..."}
+                            {!isDeletingUser && "Delete my account"}
                         </button>
                     </div>
                 </div>

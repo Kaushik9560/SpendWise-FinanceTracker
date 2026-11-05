@@ -1,27 +1,46 @@
-import { CATEGORY_META } from "../constants"
-import { formatCurrency } from "../lib/formatters"
+import BudgetCard from "../components/BudgetCard"
+import { CATEGORY_DETAILS } from "../categories"
 import { Icon } from "../icons"
 
-export default function BudgetSection({
-    budgets,
-    budgetEdit,
-    setBudgetEdit,
-    categoryTotals,
-    busyAction,
-    onSeedData,
-    onExportCSV,
-    onSaveBudget,
-    onRemoveBudget
-}) {
-    // This section turns every expense category into one budget card.
+// Income categories do not need a spending limit.
+const EXPENSE_CATEGORIES = Object.entries(CATEGORY_DETAILS).filter((categoryEntry) => {
+    const category = categoryEntry[0]
+    return category !== "Salary & Income" && category !== "Investments"
+})
+
+export default function BudgetSection(props) {
+    const budgets = props.budgets
+    const budgetEdit = props.budgetEdit
+    const setBudgetEdit = props.setBudgetEdit
+    const categoryTotals = props.categoryTotals
+    const busyAction = props.busyAction
+    const onSeedData = props.onSeedData
+    const onExportCSV = props.onExportCSV
+    const onSaveBudget = props.onSaveBudget
+    const onRemoveBudget = props.onRemoveBudget
+
+    const isLoadingDemoData = busyAction === "seeding"
+
     return (
         <div className="page-enter">
             <div className="budget-toolbar">
-                <p className="budget-hint">Set monthly spending limits per category. Progress is calculated from this month's expenses and your limits sync across devices.</p>
+                <p className="budget-hint">
+                    Set monthly spending limits per category. Progress is calculated from this month's expenses and your limits sync across devices.
+                </p>
+
                 <div style={{ display: "flex", gap: "0.75rem" }}>
-                    <button id="seed-data-btn" className="btn btn-secondary" onClick={() => void onSeedData()} disabled={busyAction === "seeding"}>
-                        {busyAction === "seeding" ? <><span className="spinner" /> Seeding...</> : <>{Icon.seed} Load demo data</>}
+                    <button
+                        id="seed-data-btn"
+                        className="btn btn-secondary"
+                        onClick={() => void onSeedData()}
+                        disabled={isLoadingDemoData}
+                    >
+                        {isLoadingDemoData && <span className="spinner" />}
+                        {!isLoadingDemoData && Icon.seed}
+                        {isLoadingDemoData && "Seeding..."}
+                        {!isLoadingDemoData && "Load demo data"}
                     </button>
+
                     <button id="export-csv-btn" className="btn btn-secondary" onClick={onExportCSV}>
                         {Icon.download} Export CSV
                     </button>
@@ -29,103 +48,31 @@ export default function BudgetSection({
             </div>
 
             <div className="budget-grid">
-                {Object.entries(CATEGORY_META)
-                    // Income categories do not need spending limits.
-                    .filter(([category]) => !["Salary & Income", "Investments"].includes(category))
-                    .map(([category, meta]) => {
-                        // find returns the saved budget for the current category.
-                        const budget = budgets.find((item) => item.category === category)
-                        const spent = categoryTotals[category]?.expense || 0
-                        // Cap only the visual bar at 100%; text still shows the real overage.
-                        const percent = budget ? Math.min((spent / budget.limit) * 100, 100) : 0
-                        const isOverBudget = budget ? spent > budget.limit : false
-                        const isEditing = budgetEdit?.category === category
+                {EXPENSE_CATEGORIES.map((categoryEntry) => {
+                    const category = categoryEntry[0]
+                    const categoryStyle = categoryEntry[1]
+                    const budget = budgets.find((item) => item.category === category)
+                    let spent = 0
 
-                        return (
-                            <div
-                                key={category}
-                                className={`budget-card ${isOverBudget ? "over-budget" : ""}`}
-                                id={`budget-${category.replace(/\s+/g, "-").toLowerCase()}`}
-                            >
-                                <div className="budget-card-header">
-                                    <div className="budget-cat-info">
-                                        <span className="budget-cat-icon" style={{ background: `${meta.color}20`, color: meta.color }}>
-                                            {meta.icon}
-                                        </span>
-                                        <span className="budget-cat-name">{category}</span>
-                                    </div>
-                                    <div className="budget-actions">
-                                        {budget && (
-                                            <button className="icon-btn" onClick={() => void onRemoveBudget(category)} title="Remove budget" disabled={busyAction === "removeBudget"}>
-                                                {Icon.trash}
-                                            </button>
-                                        )}
-                                        <button
-                                            className="icon-btn"
-                                            onClick={() => setBudgetEdit(isEditing ? null : { category, value: budget ? String(budget.limit) : "" })}
-                                            title={budget ? "Edit budget" : "Set budget"}
-                                        >
-                                            {budget ? Icon.edit : Icon.plus}
-                                        </button>
-                                    </div>
-                                </div>
+                    if (categoryTotals[category]) {
+                        spent = categoryTotals[category].expense
+                    }
 
-                                {isEditing && (
-                                    <div className="budget-edit-row">
-                                        <div className="amount-input-wrap" style={{ flex: 1 }}>
-                                            <span className="amount-prefix">₹</span>
-                                            <input
-                                                className="form-input amount-input"
-                                                type="number"
-                                                placeholder="Monthly limit"
-                                                value={budgetEdit.value}
-                                                onChange={(event) => setBudgetEdit({ category, value: event.target.value })}
-                                                autoFocus
-                                                onKeyDown={(event) => {
-                                                    if (event.key === "Enter") void onSaveBudget(category, budgetEdit.value)
-                                                    if (event.key === "Escape") setBudgetEdit(null)
-                                                }}
-                                            />
-                                        </div>
-                                        <button className="btn btn-primary btn-sm" onClick={() => void onSaveBudget(category, budgetEdit.value)} disabled={busyAction === "saveBudget"}>Save</button>
-                                        <button className="btn btn-secondary btn-sm" onClick={() => setBudgetEdit(null)}>Cancel</button>
-                                    </div>
-                                )}
-
-                                <div className="budget-amounts">
-                                    <div>
-                                        <div className="budget-spent">{formatCurrency(spent)}</div>
-                                        <div className="budget-spent-label">spent</div>
-                                    </div>
-                                    {budget ? (
-                                        <div style={{ textAlign: "right" }}>
-                                            <div className={`budget-limit ${isOverBudget ? "over" : ""}`}>{formatCurrency(budget.limit)}</div>
-                                            <div className="budget-spent-label">limit</div>
-                                        </div>
-                                    ) : (
-                                        <div className="budget-no-limit">No limit set</div>
-                                    )}
-                                </div>
-
-                                {budget && (
-                                    <div className="budget-progress-track">
-                                        <div
-                                            className={`budget-progress-fill ${isOverBudget ? "over" : ""}`}
-                                            style={{ width: `${percent}%`, background: isOverBudget ? "var(--red)" : meta.color }}
-                                        />
-                                    </div>
-                                )}
-
-                                {budget && (
-                                    <div className={`budget-status ${isOverBudget ? "over" : "ok"}`}>
-                                        {isOverBudget
-                                            ? `₹ Over by ${formatCurrency(spent - budget.limit)}`
-                                            : `₹ ${formatCurrency(budget.limit - spent)} remaining`}
-                                    </div>
-                                )}
-                            </div>
-                        )
-                    })}
+                    return (
+                        <BudgetCard
+                            key={category}
+                            category={category}
+                            categoryStyle={categoryStyle}
+                            budget={budget}
+                            spent={spent}
+                            budgetEdit={budgetEdit}
+                            setBudgetEdit={setBudgetEdit}
+                            busyAction={busyAction}
+                            onSaveBudget={onSaveBudget}
+                            onRemoveBudget={onRemoveBudget}
+                        />
+                    )
+                })}
             </div>
         </div>
     )

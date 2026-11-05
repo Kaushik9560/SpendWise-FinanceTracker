@@ -1,14 +1,21 @@
 import { Icon } from "../icons"
 
-export default function ToastContainer({ toasts, onRemove }) {
+function getToastIcon(type) {
+    if (type === "success") return "✓"
+    if (type === "error") return "✕"
+    return "ℹ"
+}
+
+export default function ToastContainer(props) {
+    const toasts = props.toasts
+    const onRemove = props.onRemove
+
     // map converts each toast object into one visible notification.
     return (
         <div className="toast-container">
             {toasts.map((toast) => (
                 <div key={toast.id} className={`toast toast-${toast.type}`}>
-                    <span className="toast-icon">
-                        {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"}
-                    </span>
+                    <span className="toast-icon">{getToastIcon(toast.type)}</span>
                     <span className="toast-msg">{toast.message}</span>
                     <button className="toast-close" onClick={() => onRemove(toast.id)}>
                         {Icon.close}
