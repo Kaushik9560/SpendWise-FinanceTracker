@@ -186,7 +186,6 @@ export default function DashboardSection(props) {
                                     return (
                                         <div key={category} className="cat-bar-row">
                                             <div className="cat-bar-label">
-                                                <span>{meta.icon}</span>
                                                 <span>{category}</span>
                                             </div>
                                             <div className="cat-bar-track">
