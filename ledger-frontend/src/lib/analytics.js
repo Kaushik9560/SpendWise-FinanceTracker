@@ -1,8 +1,11 @@
 // MongoDB sends month numbers. This array gives each number a readable label.
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-/* Convert a flat transaction list into totals grouped by category.
- * Example result: { Food: { expense: 500, income: 0 } }
+/*
+ * Groups the transaction list by category and separately totals income/expense.
+ * App calls it on the latest expenses, then Dashboard and Budget use the result
+ * for category bars and spent-versus-limit calculations.
+ * Example: { Food: { expense: 500, income: 0 } }
  */
 export function buildCategoryTotals(expenses) {
     const categoryTotals = {}
@@ -20,6 +23,11 @@ export function buildCategoryTotals(expenses) {
     return categoryTotals
 }
 
+/*
+ * Converts grouped category totals into chart-ready expense rows.
+ * It removes categories with no spending, sorts highest first, and returns the
+ * top six so Dashboard and Analytics stay readable.
+ */
 export function buildTopExpenseCategories(categoryTotals) {
     const expenseCategories = []
 
@@ -39,7 +47,11 @@ export function buildTopExpenseCategories(categoryTotals) {
     return expenseCategories.slice(0, 6)
 }
 
-// The backend returns separate income/expense rows; this joins them month-wise for the chart.
+/*
+ * Converts backend monthly aggregation rows into the last six chart columns.
+ * Income and expense may arrive as separate rows, so they are merged by year-month,
+ * sorted chronologically, and returned with a readable month label.
+ */
 export function buildMonthlyData(monthlyTrend = []) {
     const monthlyMap = {}
 

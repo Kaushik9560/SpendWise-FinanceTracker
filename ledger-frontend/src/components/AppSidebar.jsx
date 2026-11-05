@@ -1,12 +1,18 @@
 import { Icon } from "../icons"
 import BrandMark from "./BrandMark"
 
+/* Converts App's health state into the short label shown in the sidebar. */
 function getHealthText(health) {
     if (health === "online") return "Service online"
     if (health === "offline") return "Offline"
     return "Connecting..."
 }
 
+/*
+ * Displays navigation, signed-in user details, backend status, and logout.
+ * App provides the current tab and service state through props; sidebar button
+ * clicks call parent callbacks so App remains the owner of shared state.
+ */
 export default function AppSidebar(props) {
     // Each value below comes from App.jsx through props.
     const user = props.user

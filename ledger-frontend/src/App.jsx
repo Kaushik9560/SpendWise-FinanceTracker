@@ -37,11 +37,10 @@ const EMPTY_AUTH_FORM = { name: "", email: "", password: "", confirmPassword: ""
 const EMPTY_TRANSFER = { fromAccount: "", toAccount: "", amount: "" }
 
 /*
- * App.jsx is the coordinator of the frontend.
- * It stores shared state, calls the API, and passes data to small UI components.
- * Keeping fixed values outside App prevents them from being recreated on every render.
+ * Returns a safe message for the toast system.
+ * API failures normally arrive as Error objects from api.js, while the fallback
+ * covers unexpected values. This keeps every catch block short and consistent.
  */
-// API errors are Error objects in normal cases; this helper also handles unknown values.
 function errorMessage(error, fallback) {
     if (error instanceof Error) {
         return error.message
@@ -50,6 +49,12 @@ function errorMessage(error, fallback) {
     return fallback
 }
 
+/*
+ * App is the main coordinator of SpendWise.
+ * It owns shared state, calls the backend, prepares analytics data, and passes
+ * data plus callback functions to the smaller screen components.
+ * A change here can update several sections because App is their common parent.
+ */
 export default function App() {
     // URL parameters decide whether the first screen is login, reset, or verification.
     const urlParams = new URLSearchParams(window.location.search)
@@ -93,7 +98,11 @@ export default function App() {
     const [budgets, setBudgets] = useState([])
     const [budgetEdit, setBudgetEdit] = useState(null)
 
-    // Derived values are calculated from state; they do not need separate useState variables.
+    /* DERIVED DASHBOARD DATA
+     * These values are recalculated from the latest API state during rendering.
+     * They are not stored in useState because they can be derived from accounts,
+     * balances, expenses, and summary without another source of truth.
+     */
     let totalBalance = 0
     const accountBalances = Object.values(balances)
 
@@ -132,9 +141,10 @@ export default function App() {
         if (month.expense > maxMonthlyVal) maxMonthlyVal = month.expense
     })
 
-    /* TOASTS
-     * A toast is a temporary message. Functional setState receives the latest
-     * array, so quick successive messages do not overwrite one another.
+    /* TOAST NOTIFICATIONS
+     * Adds a message requested by any feature and removes it after four seconds.
+     * Functional setState always receives the newest array, so multiple API
+     * responses arriving close together do not overwrite each other's toasts.
      */
     function showToast(type, message) {
         const id = Date.now() + Math.random()
@@ -144,19 +154,29 @@ export default function App() {
         }, 4000)
     }
 
+    /*
+     * Removes one toast when its close button is clicked.
+     * ToastContainer sends the selected id back through its onRemove callback.
+     */
     function removeToast(id) {
         setToasts((currentToasts) => currentToasts.filter((toastItem) => toastItem.id !== id))
     }
 
     /* SESSION HELPERS
-     * localStorage keeps only safe display data. The real JWT stays in the
-     * backend's HttpOnly cookie and is never read by React.
+     * Saves the safe user profile after login or session restoration.
+     * The authentication token is not stored here; it remains protected in the
+     * backend's HttpOnly cookie and is automatically sent by api.js.
      */
     function setAuthenticatedUser(nextUser) {
         persistStoredSession(nextUser)
         setUser(nextUser)
     }
 
+    /*
+     * Clears all user-specific frontend state after logout, deletion, or 401.
+     * It also returns navigation to Dashboard so another user starts cleanly.
+     * The backend cookie is cleared separately by the logout endpoint.
+     */
     function clearAuthenticatedSession() {
         clearStoredSession()
         setUser(null)
@@ -168,7 +188,11 @@ export default function App() {
         setActiveTab("dashboard")
     }
 
-    // Calls the backend health endpoint and converts the result into a UI label.
+    /*
+     * Checks whether the backend service is reachable.
+     * It runs when App mounts and when the sidebar status is clicked, then stores
+     * checking, online, or offline so AppSidebar can display the current result.
+     */
     async function runHealthCheck() {
         setHealth("checking")
         try {
@@ -179,7 +203,11 @@ export default function App() {
         }
     }
 
-    // Load the account list, then request all balances at the same time.
+    /* ACCOUNTS AND BALANCES
+     * Loads the user's accounts, then requests every ledger balance in parallel.
+     * Each failed balance becomes zero so one account cannot block the full list.
+     * The final account-id-to-balance map is used across Dashboard and Accounts.
+     */
     async function loadAccounts() {
         try {
             const response = await ledgerApi.listAccounts()
@@ -205,6 +233,12 @@ export default function App() {
         }
     }
 
+    /*
+     * Handles the Refresh button in AccountsSection.
+     * It prevents guest requests, shows button loading state, and asks
+     * loadAccounts to refresh data. That loader preserves current data if its
+     * background request fails, and this handler always clears the busy state.
+     */
     async function handleRefreshAccounts() {
         if (!user) {
             return
@@ -221,6 +255,12 @@ export default function App() {
         }
     }
 
+    /*
+     * Creates an account using the name entered in CreateAccountModal.
+     * After client-side validation, it sends the name to the backend and inserts
+     * the returned account into local state with a zero starting balance.
+     * API errors keep the modal open and are shown in a toast.
+     */
     async function handleCreateAccount(accountName) {
         if (!user) {
             return
@@ -251,6 +291,12 @@ export default function App() {
         }
     }
 
+    /*
+     * Deletes the account selected in AccountsSection after modal confirmation.
+     * On success it removes the account and balance locally, clears any transfer
+     * selection using that account, closes the dialog, and shows the result.
+     * The backend decides whether deletion is allowed, including zero balance.
+     */
     async function handleDeleteAccount(account) {
         setBusyAction("deleteAccount")
         try {
@@ -277,7 +323,8 @@ export default function App() {
     }
 
     /* MONEY EVENTS
-     * "Money event" is the frontend name for an income or expense transaction.
+     * Loads the complete income/expense list used by Dashboard and Expenses.
+     * A failed background refresh keeps the last successful list on screen.
      */
     async function loadMoneyEvents() {
         try {
@@ -288,6 +335,11 @@ export default function App() {
         }
     }
 
+    /*
+     * Loads backend-calculated totals and monthly trends for Dashboard/Analytics.
+     * Keeping aggregation on the backend avoids recalculating database-wide
+     * summaries in the browser.
+     */
     async function loadMoneyEventSummary() {
         try {
             const response = await ledgerApi.getMoneyEventSummary()
@@ -297,6 +349,12 @@ export default function App() {
         }
     }
 
+    /*
+     * Records the form submitted by MoneyEventModal as income or expense.
+     * It converts amount text to a number, calls the API, closes the modal, then
+     * refreshes transactions, summary, and balances together with Promise.all().
+     * Validation/API failures are reported without losing the open form early.
+     */
     async function handleAddMoneyEvent(form) {
         setBusyAction("addMoneyEvent")
         try {
@@ -329,6 +387,11 @@ export default function App() {
         }
     }
 
+    /*
+     * Deletes a selected transaction after browser confirmation.
+     * The backend reverses its ledger effect; the frontend then reloads the list,
+     * analytics summary, and balances in parallel to keep every screen consistent.
+     */
     async function handleReverseMoneyEvent(id) {
         if (!confirm("Delete this entry? The balance will be reversed.")) {
             return
@@ -348,8 +411,9 @@ export default function App() {
     }
 
     /* CSV EXPORT
-     * Convert each transaction into a row, create an in-memory file (Blob),
-     * click a temporary link, then release the temporary URL.
+     * Runs from the Budget page's Export button and uses current expense state.
+     * It escapes description quotes, builds CSV text, creates an in-memory Blob,
+     * triggers a browser download, and releases the temporary object URL.
      */
     function handleExportCSV() {
         if (!expenses.length) {
@@ -394,7 +458,8 @@ export default function App() {
     }
 
     /* BUDGETS
-     * Budgets come from MongoDB, so they remain available on another device.
+     * Loads saved category limits from the backend into shared App state.
+     * BudgetSection combines these limits with calculated spending totals.
      */
     async function loadBudgets() {
         try {
@@ -405,6 +470,11 @@ export default function App() {
         }
     }
 
+    /*
+     * Creates or updates the limit edited in a BudgetCard.
+     * It validates the text input, sends category and numeric limit to the API,
+     * replaces that category in local state, and closes the inline editor.
+     */
     async function handleSaveBudget(category, value) {
         const limit = Number.parseFloat(value)
         if (Number.isNaN(limit) || limit <= 0) {
@@ -428,6 +498,11 @@ export default function App() {
         }
     }
 
+    /*
+     * Removes a saved limit for the selected category.
+     * The backend is updated first; only a successful response removes the item
+     * from frontend state. Failures leave the current card unchanged.
+     */
     async function handleRemoveBudget(category) {
         setBusyAction("removeBudget")
         try {
@@ -442,9 +517,10 @@ export default function App() {
         }
     }
 
-    /* AUTH ACTIONS
-     * Each screen has its own small function. This is easier to read than one
-     * large function containing deeply nested if/else blocks.
+    /* AUTHENTICATION AND ACCOUNT RECOVERY
+     * Requests a password-reset email for the address entered in AuthScreen.
+     * The backend returns a neutral response; local development may also return
+     * a preview URL, which is opened so the flow can be tested without SMTP.
      */
     async function submitForgotPassword() {
         setBusyAction("forgot")
@@ -463,6 +539,11 @@ export default function App() {
         }
     }
 
+    /*
+     * Submits the reset token from the URL with the user's new password.
+     * Matching passwords are checked first. Success removes the secret token
+     * from the address bar, clears the form, and returns to the login screen.
+     */
     async function submitPasswordReset() {
         if (authForm.password !== authForm.confirmPassword) {
             showToast("error", "Passwords do not match")
@@ -485,6 +566,11 @@ export default function App() {
         }
     }
 
+    /*
+     * Registers the name, normalized email, and password entered in AuthScreen.
+     * On success it clears password fields and opens the verification-pending
+     * screen. Registration does not log the user in before email verification.
+     */
     async function submitRegistration() {
         const name = authForm.name.trim()
         const email = authForm.email.trim().toLowerCase()
@@ -513,6 +599,12 @@ export default function App() {
         }
     }
 
+    /*
+     * Handles login using the email and password entered in AuthScreen.
+     * The API sets the HttpOnly cookie; React stores only the safe user profile,
+     * clears the form, and opens Dashboard. Unverified users are redirected to
+     * the verification screen, while every failure is shown as a toast.
+     */
     async function submitLogin() {
         const email = authForm.email.trim().toLowerCase()
         if (!email || !authForm.password) {
@@ -538,7 +630,11 @@ export default function App() {
         }
     }
 
-    // The form uses one submit handler, which forwards work to the active screen.
+    /*
+     * Receives the shared authentication form submission from AuthScreen.
+     * It prevents browser refresh and delegates to the function matching mode,
+     * allowing one form component to support login, register, forgot, and reset.
+     */
     async function handleAuthSubmit(event) {
         event.preventDefault()
 
@@ -548,6 +644,11 @@ export default function App() {
         return submitLogin()
     }
 
+    /*
+     * Resends an email verification link from the pending-verification screen.
+     * It uses the email already held in authForm and updates the notice/toast with
+     * the backend response. The loading action prevents repeated clicks.
+     */
     async function handleResendVerification() {
         setBusyAction("resend")
         try {
@@ -562,8 +663,9 @@ export default function App() {
     }
 
     /* SESSION ACTIONS
-     * Logout clears both server cookie and frontend display state. If the server
-     * is offline, local logout still succeeds so the user is not stuck.
+     * Runs when the sidebar logout button is clicked.
+     * It asks the server to clear the secure cookie, then always clears frontend
+     * state. Local logout still succeeds if the network request fails.
      */
     async function handleLogout() {
         setBusyAction("logout")
@@ -579,6 +681,11 @@ export default function App() {
         setBusyAction(null)
     }
 
+    /*
+     * Permanently deletes the signed-in user after DeleteUserModal supplies the
+     * password and DELETE confirmation. Success closes the modal, clears all
+     * session data, and returns to login; failure keeps the account and session.
+     */
     async function handleDeleteUserAccount(credentials) {
         setBusyAction("deleteUserAccount")
         try {
@@ -594,9 +701,11 @@ export default function App() {
         }
     }
 
-    /* TRANSFER
-     * Client-side validation gives fast feedback. The backend repeats every
-     * validation because browser data must never be trusted.
+    /* TRANSFERS
+     * Handles the transfer form submitted by TransferSection.
+     * It validates both accounts and amount, then sends a unique idempotency key
+     * so a retried request cannot transfer the same money twice. On success it
+     * clears the form and reloads balances; the backend repeats all validation.
      */
     async function handleTransfer(event) {
         event.preventDefault()
@@ -639,7 +748,10 @@ export default function App() {
         }
     }
 
-    // These small functions clearly show which state opens or closes each dialog.
+    /* MODAL AND NAVIGATION CALLBACKS
+     * Child components call these small functions instead of changing App state
+     * directly. This keeps App as the single owner of dialog/navigation state.
+     */
     function openMoneyEventModal() {
         setShowModal(true)
     }
@@ -677,8 +789,9 @@ export default function App() {
     }
 
     /* PAGE SELECTION
-     * The sidebar changes activeTab. This function returns the matching page.
-     * Using normal if statements keeps the main JSX free from many conditions.
+     * Runs during rendering and returns the section selected in the sidebar.
+     * Each section receives prepared data plus callback props, while backend calls
+     * remain centralized in App. The final return is Budget for the remaining tab.
      */
     function renderActiveSection() {
         if (activeTab === "dashboard") {
@@ -763,15 +876,20 @@ export default function App() {
         )
     }
 
-    /* REACT EFFECTS
-     * useEffect runs work that is outside rendering, such as network calls and
-     * browser event listeners. An empty dependency array means "run once".
+    /* INITIAL HEALTH EFFECT
+     * Runs once after App first appears and checks backend availability.
+     * The empty dependency array is correct because the initial check is not tied
+     * to changing state; users can manually check again from the sidebar.
      */
     useEffect(() => {
         void runHealthCheck()
     }, [])
 
-    // If the URL contains ?verify=..., verify it once and then clean the URL.
+    /* EMAIL VERIFICATION EFFECT
+     * Runs on mount, reads ?verify= from the email link, and submits that token.
+     * verificationStarted prevents React StrictMode from sending it twice in
+     * development. Success cleans the URL; failure displays the backend message.
+     */
     useEffect(() => {
         const verificationToken = new URLSearchParams(window.location.search).get("verify")
         if (!verificationToken || verificationStarted.current) return
@@ -796,7 +914,11 @@ export default function App() {
         void verify()
     }, [])
 
-    // Ask the server whether the browser's HttpOnly cookie is still valid.
+    /* SESSION RESTORATION EFFECT
+     * Runs on startup and asks whether the browser's HttpOnly cookie is valid.
+     * Reset and verification links skip restoration because their auth screens
+     * must remain visible. resetToken is listed because it controls that decision.
+     */
     useEffect(() => {
         async function restoreSession() {
             if (resetToken || new URLSearchParams(window.location.search).has("verify")) return
@@ -811,7 +933,11 @@ export default function App() {
         void restoreSession()
     }, [resetToken])
 
-    // api.js dispatches this event after a 401 response (expired/invalid session).
+    /* UNAUTHORIZED EVENT EFFECT
+     * api.js emits ledger:unauthorized whenever an API request receives HTTP 401.
+     * This listener clears stale user data and returns to login. The cleanup
+     * removes the browser listener when App unmounts to prevent duplicates.
+     */
     useEffect(() => {
         function handleUnauthorized(event) {
             if (!readStoredUser()) {
@@ -835,7 +961,11 @@ export default function App() {
         }
     }, [])
 
-    // Whenever login changes user from null to an object, load all private data.
+    /* PRIVATE DATA EFFECT
+     * Runs whenever the authenticated user changes. After login or session
+     * restoration, it starts the independent account, transaction, summary, and
+     * budget loads. A null user causes no protected requests.
+     */
     useEffect(() => {
         if (user) {
             void loadAccounts()

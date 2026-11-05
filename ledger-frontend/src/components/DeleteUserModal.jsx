@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react"
 import { Icon } from "../icons"
 
+/*
+ * Collects the two confirmations required for permanent user deletion.
+ * It owns the password/text fields, then sends both values to App through
+ * onConfirm. App performs the authenticated backend request and session cleanup.
+ */
 export default function DeleteUserModal(props) {
     const busy = props.busy
     const onClose = props.onClose
@@ -11,7 +16,10 @@ export default function DeleteUserModal(props) {
     const [confirmation, setConfirmation] = useState("")
     const ready = password.length > 0 && confirmation === "DELETE"
 
-    // Effects are useful for browser events that are outside normal React clicks.
+    /*
+     * Adds Escape-key dismissal while the modal is open and removes it on cleanup.
+     * The latest busy value prevents closing during the irreversible request.
+     */
     useEffect(() => {
         function closeOnEscape(event) {
             if (event.key === "Escape" && !busy) onClose()
@@ -28,6 +36,7 @@ export default function DeleteUserModal(props) {
         }
     }
 
+    /* Passes credentials to App only after password and exact DELETE text exist. */
     function handleSubmit(event) {
         event.preventDefault()
 

@@ -8,6 +8,11 @@ const EXPENSE_CATEGORIES = Object.entries(CATEGORY_DETAILS).filter((categoryEntr
     return category !== "Salary & Income" && category !== "Investments"
 })
 
+/*
+ * Displays one BudgetCard for every expense category and the CSV export action.
+ * App supplies saved limits, calculated spending, shared edit state, and callbacks.
+ * Each card sends save/remove events upward; this section makes no API requests.
+ */
 export default function BudgetSection(props) {
     const budgets = props.budgets
     const budgetEdit = props.budgetEdit

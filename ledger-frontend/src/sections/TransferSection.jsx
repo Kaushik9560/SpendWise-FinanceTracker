@@ -8,6 +8,11 @@ const TRANSFER_STEPS = [
     { icon: "04", title: "Ledger-backed", desc: "Every debit has a matching credit record" }
 ]
 
+/*
+ * Displays the controlled form for moving money between two user accounts.
+ * App owns the form object and submit logic; this section updates fields through
+ * setTransfer and sends form submission back through onSubmit.
+ */
 export default function TransferSection(props) {
     const accounts = props.accounts
     const balances = props.balances

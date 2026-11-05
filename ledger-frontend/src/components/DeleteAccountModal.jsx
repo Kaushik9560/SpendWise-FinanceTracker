@@ -1,13 +1,22 @@
 import { useEffect } from "react"
 import { Icon } from "../icons"
 
+/*
+ * Displays confirmation for the account selected in AccountsSection.
+ * App supplies the account and confirm/close callbacks; the modal never deletes
+ * data itself. Busy state locks dismissal while the backend request is running.
+ */
 export default function DeleteAccountModal(props) {
     const account = props.account
     const busy = props.busy
     const onClose = props.onClose
     const onConfirm = props.onConfirm
 
-    // Register Escape when the modal opens; cleanup removes it when the modal closes.
+    /*
+     * Registers Escape while the modal is mounted and removes it on cleanup.
+     * busy and onClose are dependencies because the listener must use their latest
+     * values and must not dismiss a deletion already in progress.
+     */
     useEffect(() => {
         function closeOnEscape(event) {
             if (event.key === "Escape" && !busy) onClose()
@@ -17,6 +26,7 @@ export default function DeleteAccountModal(props) {
         return () => window.removeEventListener("keydown", closeOnEscape)
     }, [busy, onClose])
 
+    /* Closes on a backdrop click, but ignores clicks inside the dialog. */
     function handleOverlayMouseDown(event) {
         const clickedOutsideModal = event.target === event.currentTarget
 
@@ -25,7 +35,7 @@ export default function DeleteAccountModal(props) {
         }
     }
 
-    // This modal asks for confirmation; the backend performs the actual archive.
+    // This modal only asks for confirmation; App performs the API deletion.
     return (
         <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayMouseDown}>
             <section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">

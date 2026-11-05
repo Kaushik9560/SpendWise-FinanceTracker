@@ -1,6 +1,11 @@
 import { Icon } from "../icons"
 import { formatCurrency, formatDate } from "../lib/formatters"
 
+/*
+ * Displays account cards, ledger balances, refresh/create actions, and security.
+ * App supplies accounts and balances separately plus callbacks for each action.
+ * This section renders the data; App and the backend perform all mutations.
+ */
 export default function AccountsSection(props) {
     const accounts = props.accounts
     const balances = props.balances
@@ -14,11 +19,13 @@ export default function AccountsSection(props) {
     const isCreatingAccount = busyAction === "createAccount"
     const isDeletingUser = busyAction === "deleteUserAccount"
 
+    /* Uses the saved name, with a short id fallback for older unnamed accounts. */
     function getAccountName(account) {
         if (account.name) return account.name
         return `Account ...${account._id.slice(-8)}`
     }
 
+    /* Formats a loaded balance and shows a placeholder while it is unavailable. */
     function getBalanceText(accountId) {
         if (balances[accountId] === undefined) return "—"
         return formatCurrency(balances[accountId])

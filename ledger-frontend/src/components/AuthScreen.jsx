@@ -33,6 +33,7 @@ const AUTH_COPY = {
     }
 }
 
+/* Returns the correct action/loading label for the current authentication mode. */
 function getSubmitButtonText(mode, isBusy) {
     if (isBusy) return "Please wait..."
     if (mode === "register") return "Create account"
@@ -42,8 +43,10 @@ function getSubmitButtonText(mode, isBusy) {
 }
 
 /*
- * AuthScreen only displays forms. App.jsx owns authentication logic and passes
- * event functions as props. This is separation of UI and business logic.
+ * Displays login, registration, recovery, reset, and verification screens.
+ * App owns the form/authentication state and passes it here through props.
+ * Input handlers update parent state, while submit/resend callbacks ask App to
+ * validate data and communicate with the backend.
  */
 export default function AuthScreen(props) {
     // App owns authentication state. This screen receives it through props.
@@ -126,7 +129,11 @@ export default function AuthScreen(props) {
         setAuthForm({ ...authForm, confirmPassword: event.target.value })
     }
 
-    // Clear sensitive fields whenever the user changes authentication screen.
+    /*
+     * Changes the visible authentication screen without a page reload.
+     * It clears passwords and most fields to avoid carrying sensitive input into
+     * another flow, while preserving email when moving to Forgot Password.
+     */
     function changeMode(nextMode) {
         let email = ""
         if (nextMode === "forgot") {

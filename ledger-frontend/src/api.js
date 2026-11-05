@@ -15,6 +15,12 @@ if (!API_BASE_URL) {
     API_BASE_URL = "http://localhost:3000"
 }
 
+/*
+ * Sends every frontend request through one consistent pipeline.
+ * Named ledgerApi methods provide the path/options; this function adds cookies,
+ * JSON conversion, and a 15-second timeout, then parses the response.
+ * HTTP failures become Error objects, and a 401 also notifies App to log out.
+ */
 async function request(path, options = {}) {
     // AbortController lets us cancel a request that takes longer than 15 seconds.
     let response
@@ -76,7 +82,11 @@ async function request(path, options = {}) {
     return data // Give parsed backend data back to the component that called us.
 }
 
-// Small named methods make component code read like: ledgerApi.login(details).
+/*
+ * This object is the public frontend API used by App.jsx.
+ * Each method describes one backend endpoint and delegates common work to request,
+ * keeping fetch details and endpoint URLs out of visual React components.
+ */
 export const ledgerApi = {
     baseUrl: API_BASE_URL,
     health: () => request("/api/health"),

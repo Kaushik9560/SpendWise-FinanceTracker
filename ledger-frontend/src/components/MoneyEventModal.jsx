@@ -2,7 +2,7 @@ import { useRef, useState } from "react"
 import { CATEGORY_DETAILS } from "../categories"
 import { Icon } from "../icons"
 
-// A function creates fresh default values each time the modal component mounts.
+/* Creates fresh controlled-form values each time the modal mounts. */
 function emptyMoneyEventForm() {
     return {
         accountId: "",
@@ -14,7 +14,7 @@ function emptyMoneyEventForm() {
     }
 }
 
-// Income and expense use slightly different category lists.
+/* Returns whether a category is valid for the currently selected transaction type. */
 function categoryMatchesType(category, type) {
     if (type === "income") {
         return ["Salary & Income", "Investments", "Others"].includes(category)
@@ -22,6 +22,11 @@ function categoryMatchesType(category, type) {
     return category !== "Salary & Income"
 }
 
+/*
+ * Displays the controlled form for adding an income or expense transaction.
+ * It receives accounts plus submit/close callbacks from App, owns temporary form
+ * input, and sends the complete form object back on submit. App calls the API.
+ */
 export default function MoneyEventModal(props) {
     const accounts = props.accounts
     const onClose = props.onClose
@@ -34,8 +39,8 @@ export default function MoneyEventModal(props) {
     const categories = Object.keys(CATEGORY_DETAILS)
     const today = new Date().toISOString().split("T")[0]
 
+    /* Closes only when the backdrop is clicked, not any child inside the modal. */
     function handleOverlayClick(event) {
-        // Close only when the dark background is clicked, not the white/blue modal.
         if (event.target === overlayRef.current) {
             onClose()
         }
@@ -62,6 +67,10 @@ export default function MoneyEventModal(props) {
         setForm({ ...form, category })
     }
 
+    /*
+     * Switches to expense and clears an income-only category if necessary.
+     * This prevents the form from submitting an invalid type/category pair.
+     */
     function selectExpense() {
         let selectedCategory = form.category
 
@@ -72,10 +81,12 @@ export default function MoneyEventModal(props) {
         setForm({ ...form, type: "expense", category: selectedCategory })
     }
 
+    /* Switches to income and chooses its default Salary & Income category. */
     function selectIncome() {
         setForm({ ...form, type: "income", category: "Salary & Income" })
     }
 
+    /* Prevents page refresh and sends the current controlled form to App. */
     function handleSubmit(event) {
         event.preventDefault()
         void onSubmit(form)

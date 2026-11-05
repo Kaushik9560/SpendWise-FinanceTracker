@@ -2,6 +2,11 @@ import { CATEGORY_DETAILS } from "../categories"
 import { formatCurrency } from "../lib/formatters"
 import { Icon } from "../icons"
 
+/*
+ * Displays summary cards, six-month trends, and category spending breakdown.
+ * App prepares all totals/chart arrays and passes them as props, so this section
+ * focuses only on converting those values into visual cards and proportional bars.
+ */
 export default function AnalyticsSection(props) {
     const summary = props.summary
     const monthlyData = props.monthlyData
@@ -24,6 +29,7 @@ export default function AnalyticsSection(props) {
         expenseCount = summary.summary.expenseCount
     }
 
+    // Savings rate compares net savings with income and is shown on the net card.
     let savingsRate = "No income recorded"
     if (totalIncome > 0) {
         const savingsPercentage = Math.round((netBalance / totalIncome) * 100)

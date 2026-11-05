@@ -2,8 +2,9 @@ import { Icon } from "../icons"
 import { formatCurrency } from "../lib/formatters"
 
 /*
- * BudgetCard displays one category.
- * BudgetSection passes its data and click functions through props.
+ * Displays one spending category, its limit, progress, and inline editor.
+ * BudgetSection passes the category data and App-owned edit state through props.
+ * Save/remove buttons call parent callbacks; this component performs no API call.
  */
 export default function BudgetCard(props) {
     // BudgetSection gives this card all of these values through props.
@@ -38,6 +39,10 @@ export default function BudgetCard(props) {
         }
     }
 
+    /*
+     * Opens this category's editor with its current limit, or closes it if open.
+     * budgetEdit lives in App, which ensures only one BudgetCard is edited at once.
+     */
     function toggleEditor() {
         if (isEditing) {
             setBudgetEdit(null)
@@ -53,6 +58,7 @@ export default function BudgetCard(props) {
         setBudgetEdit({ category, value: event.target.value })
     }
 
+    /* Supports keyboard saving with Enter and cancelling with Escape. */
     function handleLimitKeyDown(event) {
         if (event.key === "Enter") {
             void onSaveBudget(category, budgetEdit.value)

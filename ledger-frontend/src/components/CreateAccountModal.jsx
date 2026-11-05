@@ -1,6 +1,11 @@
 import { useState } from "react"
 import { Icon } from "../icons"
 
+/*
+ * Collects a new account name inside a controlled modal form.
+ * App passes loading/close/submit callbacks; this component owns only the text
+ * input and returns the trimmed name when the user submits.
+ */
 export default function CreateAccountModal(props) {
     const busy = props.busy
     const onClose = props.onClose
@@ -10,8 +15,11 @@ export default function CreateAccountModal(props) {
     const [name, setName] = useState("")
     const trimmedName = name.trim()
 
+    /*
+     * Prevents browser refresh and passes a non-empty trimmed name to App.
+     * App then validates again, calls the backend, and controls the busy state.
+     */
     function handleSubmit(event) {
-        // Stop the browser's default page refresh and call the parent function.
         event.preventDefault()
 
         if (trimmedName) {
@@ -19,8 +27,8 @@ export default function CreateAccountModal(props) {
         }
     }
 
+    /* Closes only when the dark backdrop itself is clicked and no request is active. */
     function handleOverlayClick(event) {
-        // currentTarget is the dark overlay; target is the exact clicked element.
         if (event.target === event.currentTarget && !busy) {
             onClose()
         }

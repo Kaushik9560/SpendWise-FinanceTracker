@@ -4,12 +4,18 @@ import { Icon } from "../icons"
 
 const FILTERS = ["all", "expense", "income"]
 
+/* Converts internal filter ids into readable tab labels. */
 function getFilterLabel(filter) {
     if (filter === "all") return "All"
     if (filter === "expense") return "Expenses"
     return "Income"
 }
 
+/*
+ * Displays the filtered income/expense history and filter controls.
+ * App owns the full list and current filter, then passes the matching rows here.
+ * Add/delete clicks call App callbacks, where modal state and API work are handled.
+ */
 export default function ExpensesSection(props) {
     const expenseFilter = props.expenseFilter
     const filteredExpenses = props.filteredExpenses

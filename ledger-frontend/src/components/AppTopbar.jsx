@@ -1,5 +1,10 @@
 import { Icon } from "../icons"
 
+/*
+ * Displays the heading for the currently selected section.
+ * It receives activeTab and user from App, chooses matching text, and calls
+ * onShowModal when the shared Add transaction button is clicked.
+ */
 export default function AppTopbar(props) {
     const activeTab = props.activeTab
     const user = props.user

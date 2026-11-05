@@ -2,6 +2,11 @@ import { CATEGORY_DETAILS } from "../categories"
 import { formatCurrency, formatRelativeDate } from "../lib/formatters"
 import { Icon } from "../icons"
 
+/*
+ * Displays the signed-in user's high-level financial overview.
+ * App passes account/transaction summaries and prepared category totals as props.
+ * Dashboard only renders previews and sends navigation/modal clicks back to App.
+ */
 export default function DashboardSection(props) {
     const summary = props.summary
     const accounts = props.accounts
@@ -38,10 +43,12 @@ export default function DashboardSection(props) {
         accountWord = "account"
     }
 
+    /* Requests that App change the active sidebar tab to Expenses. */
     function showExpensesPage() {
         onSetActiveTab("expenses")
     }
 
+    /* Requests that App change the active sidebar tab to Analytics. */
     function showAnalyticsPage() {
         onSetActiveTab("analytics")
     }
