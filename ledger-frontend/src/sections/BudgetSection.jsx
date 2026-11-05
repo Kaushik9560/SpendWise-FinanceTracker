@@ -14,12 +14,9 @@ export default function BudgetSection(props) {
     const setBudgetEdit = props.setBudgetEdit
     const categoryTotals = props.categoryTotals
     const busyAction = props.busyAction
-    const onSeedData = props.onSeedData
     const onExportCSV = props.onExportCSV
     const onSaveBudget = props.onSaveBudget
     const onRemoveBudget = props.onRemoveBudget
-
-    const isLoadingDemoData = busyAction === "seeding"
 
     return (
         <div className="page-enter">
@@ -29,18 +26,6 @@ export default function BudgetSection(props) {
                 </p>
 
                 <div style={{ display: "flex", gap: "0.75rem" }}>
-                    <button
-                        id="seed-data-btn"
-                        className="btn btn-secondary"
-                        onClick={() => void onSeedData()}
-                        disabled={isLoadingDemoData}
-                    >
-                        {isLoadingDemoData && <span className="spinner" />}
-                        {!isLoadingDemoData && Icon.seed}
-                        {isLoadingDemoData && "Seeding..."}
-                        {!isLoadingDemoData && "Load demo data"}
-                    </button>
-
                     <button id="export-csv-btn" className="btn btn-secondary" onClick={onExportCSV}>
                         {Icon.download} Export CSV
                     </button>

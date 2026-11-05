@@ -36,19 +36,6 @@ const NAV_ITEMS = [
 const EMPTY_AUTH_FORM = { name: "", email: "", password: "", confirmPassword: "" }
 const EMPTY_TRANSFER = { fromAccount: "", toAccount: "", amount: "" }
 
-const DEMO_TRANSACTIONS = [
-    { type: "income", category: "Salary & Income", amount: 75000, description: "Monthly salary", daysAgo: 1 },
-    { type: "expense", category: "Rent & Housing", amount: 18000, description: "Monthly rent", daysAgo: 1 },
-    { type: "expense", category: "Food & Dining", amount: 3200, description: "Groceries & dining", daysAgo: 2 },
-    { type: "expense", category: "Transport", amount: 1500, description: "Uber & metro", daysAgo: 3 },
-    { type: "expense", category: "Bills & Utilities", amount: 2100, description: "Electricity & internet", daysAgo: 5 },
-    { type: "expense", category: "Entertainment", amount: 800, description: "Netflix & Hotstar", daysAgo: 7 },
-    { type: "expense", category: "Shopping", amount: 4500, description: "Clothes & accessories", daysAgo: 8 },
-    { type: "income", category: "Investments", amount: 5000, description: "Dividend payout", daysAgo: 10 },
-    { type: "expense", category: "Health & Medical", amount: 1200, description: "Pharmacy & checkup", daysAgo: 12 },
-    { type: "expense", category: "Education", amount: 2500, description: "Udemy courses", daysAgo: 15 }
-]
-
 /*
  * App.jsx is the coordinator of the frontend.
  * It stores shared state, calls the API, and passes data to small UI components.
@@ -357,50 +344,6 @@ export default function App() {
             ])
         } catch (error) {
             showToast("error", errorMessage(error, "Failed to delete"))
-        }
-    }
-
-    // Adds example rows one-by-one so a new user can quickly explore the charts.
-    async function handleSeedData() {
-        if (!accounts.length) {
-            showToast("error", "Create an account first!")
-            return
-        }
-
-        const activeAccount = accounts[0]
-
-        setBusyAction("seeding")
-
-        try {
-            let addedCount = 0
-
-            for (const demoTransaction of DEMO_TRANSACTIONS) {
-                const date = new Date()
-                date.setDate(date.getDate() - demoTransaction.daysAgo)
-
-                try {
-                    await ledgerApi.createMoneyEvent({
-                        accountId: activeAccount._id,
-                        amount: demoTransaction.amount,
-                        type: demoTransaction.type,
-                        category: demoTransaction.category,
-                        description: demoTransaction.description,
-                        date: date.toISOString().split("T")[0]
-                    })
-                    addedCount += 1
-                } catch {
-                    // Skip an entry if the backend rejects it.
-                }
-            }
-
-            await Promise.all([
-                loadMoneyEvents(),
-                loadMoneyEventSummary(),
-                loadAccounts()
-            ])
-            showToast("success", `${addedCount} demo transactions added!`)
-        } finally {
-            setBusyAction(null)
         }
     }
 
@@ -813,7 +756,6 @@ export default function App() {
                 setBudgetEdit={setBudgetEdit}
                 categoryTotals={categoryTotals}
                 busyAction={busyAction}
-                onSeedData={handleSeedData}
                 onExportCSV={handleExportCSV}
                 onSaveBudget={handleSaveBudget}
                 onRemoveBudget={handleRemoveBudget}

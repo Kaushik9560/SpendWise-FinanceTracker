@@ -152,7 +152,7 @@ App opens DeleteAccountModal
 - `AnalyticsSection.jsx`: Income, expense, monthly, and category charts.
 - `AccountsSection.jsx`: Account cards and account security actions.
 - `TransferSection.jsx`: Moves money between two accounts.
-- `BudgetSection.jsx`: Lists category budget cards and demo/export buttons.
+- `BudgetSection.jsx`: Lists category budget cards and the CSV export button.
 
 Sections receive already prepared data through props. Most backend calls remain in `App.jsx`.
 
